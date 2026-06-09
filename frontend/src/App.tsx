@@ -8,6 +8,7 @@ import AnnualJobs from './pages/AnnualJobs'
 import TaxCalendar from './pages/TaxCalendar'
 import Invoices from './pages/Invoices'
 import StaffPage from './pages/Staff'
+import Automation from './pages/Automation'
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="annual-jobs" element={<AnnualJobs />} />
           <Route path="tax-calendar" element={<TaxCalendar />} />
           <Route path="invoices" element={<Invoices />} />
+          <Route path="automation" element={<Automation />} />
           <Route path="staff" element={<StaffPage />} />
         </Route>
       </Routes>

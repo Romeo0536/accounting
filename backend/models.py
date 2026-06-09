@@ -234,3 +234,23 @@ class InvoiceItem(Base):
     amount = Column(Float, default=0)
 
     invoice = relationship("Invoice", back_populates="items")
+
+
+class AutomationLog(Base):
+    __tablename__ = "automation_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    task_name = Column(String, nullable=False)    # ชื่อ task ที่รัน
+    trigger = Column(String, default="auto")      # auto / manual
+    status = Column(String, default="success")    # success / error / warning
+    message = Column(Text)                        # ผลลัพธ์
+    details = Column(Text)                        # JSON รายละเอียด
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class AutomationConfig(Base):
+    __tablename__ = "automation_configs"
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String, unique=True, nullable=False)   # ชื่อ setting
+    value = Column(String)                              # ค่า
+    description = Column(String)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

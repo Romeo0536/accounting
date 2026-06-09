@@ -1,11 +1,31 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
-from routers import clients, staff, monthly_jobs, annual_jobs, tax_filings, documents, invoices, dashboard, transactions, wht_records
+from routers import (
+    clients, staff, monthly_jobs, annual_jobs, tax_filings,
+    documents, invoices, dashboard, transactions, wht_records,
+    automation,
+)
+from scheduler import setup_scheduler
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="ระบบบริหารจัดการสำนักงานบัญชี", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # เริ่มต้น scheduler เมื่อ server start
+    sched = setup_scheduler()
+    yield
+    # หยุด scheduler เมื่อ server shutdown
+    sched.shutdown()
+
+
+app = FastAPI(
+    title="ระบบบริหารจัดการสำนักงานบัญชี",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +45,7 @@ app.include_router(documents.router, prefix="/api/documents", tags=["documents"]
 app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])
 app.include_router(transactions.router, prefix="/api/transactions", tags=["transactions"])
 app.include_router(wht_records.router, prefix="/api/wht-records", tags=["wht-records"])
+app.include_router(automation.router, prefix="/api/automation", tags=["automation"])
 
 
 @app.get("/")

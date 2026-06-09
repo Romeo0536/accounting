@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 import models
 import schemas
+import automation
 
 router = APIRouter()
 
@@ -25,11 +26,13 @@ def list_clients(status: Optional[str] = None, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=schemas.ClientResponse, status_code=201)
-def create_client(data: schemas.ClientCreate, db: Session = Depends(get_db)):
+def create_client(data: schemas.ClientCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     client = models.Client(**data.model_dump(), code=generate_client_code(db))
     db.add(client)
     db.commit()
     db.refresh(client)
+    # Auto onboarding: สร้างงานเดือนปัจจุบัน + รายการภาษีในพื้นหลัง
+    background_tasks.add_task(automation.auto_onboard_client, client.id)
     return client
 
 
