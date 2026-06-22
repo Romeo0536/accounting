@@ -6,6 +6,12 @@ echo "=== ระบบบริหารจัดการสำนักงา�
 # Start backend
 echo ">> เริ่มต้น Backend API (port 8000)..."
 cd "$(dirname "$0")/backend"
+
+# โหลดค่า LINE Bot จาก .env ถ้ามี (ไม่ต้องใช้ dependency เพิ่ม)
+if [ -f .env ]; then
+  set -a; . ./.env; set +a
+  echo ">> โหลดค่าจาก backend/.env แล้ว"
+fi
 uvicorn main:app --reload --host 0.0.0.0 --port 8000 &
 BACKEND_PID=$!
 

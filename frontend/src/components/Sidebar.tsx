@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard, Users, ClipboardList, Calendar,
-  FileText, Receipt, UserCog, BookOpen, Zap,
+  FileText, Receipt, UserCog, BookOpen, Zap, MessageCircle,
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/tax-calendar', icon: Calendar, label: 'ปฏิทินภาษี' },
   { to: '/invoices', icon: Receipt, label: 'ใบแจ้งหนี้' },
   { to: '/automation', icon: Zap, label: 'Automation' },
+  { to: '/line-bot', icon: MessageCircle, label: 'LINE Bot' },
   { to: '/staff', icon: UserCog, label: 'พนักงาน' },
 ]
 

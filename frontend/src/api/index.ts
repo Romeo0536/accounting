@@ -99,4 +99,14 @@ export const markInvoicePaid = (id: number, paid_date?: string) =>
   api.post<Invoice>(`/invoices/${id}/mark-paid`, null, { params: { paid_date } }).then(r => r.data)
 export const deleteInvoice = (id: number) => api.delete(`/invoices/${id}`)
 
+// LINE Bot
+export const getLineStatus = () => api.get('/line/status').then(r => r.data)
+export const getLineCommands = () => api.get<{ commands: any[] }>('/line/commands').then(r => r.data)
+export const simulateLine = (text: string) =>
+  api.post<{ reply: string; quick_replies: string[] }>('/line/simulate', { text }).then(r => r.data)
+export const getLineConfig = () => api.get<{ default_to: string }>('/line/config').then(r => r.data)
+export const setLineConfig = (default_to: string) =>
+  api.post('/line/config', { default_to }).then(r => r.data)
+export const pushLineDaily = () => api.post('/line/push-daily').then(r => r.data)
+
 export default api

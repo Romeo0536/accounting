@@ -5,7 +5,7 @@ from database import Base, engine
 from routers import (
     clients, staff, monthly_jobs, annual_jobs, tax_filings,
     documents, invoices, dashboard, transactions, wht_records,
-    automation,
+    automation, line,
 )
 from scheduler import setup_scheduler
 
@@ -46,6 +46,7 @@ app.include_router(invoices.router, prefix="/api/invoices", tags=["invoices"])
 app.include_router(transactions.router, prefix="/api/transactions", tags=["transactions"])
 app.include_router(wht_records.router, prefix="/api/wht-records", tags=["wht-records"])
 app.include_router(automation.router, prefix="/api/automation", tags=["automation"])
+app.include_router(line.router, prefix="/api/line", tags=["line-bot"])
 
 
 @app.get("/")

@@ -9,6 +9,7 @@ import TaxCalendar from './pages/TaxCalendar'
 import Invoices from './pages/Invoices'
 import StaffPage from './pages/Staff'
 import Automation from './pages/Automation'
+import LineBot from './pages/LineBot'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="tax-calendar" element={<TaxCalendar />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="automation" element={<Automation />} />
+          <Route path="line-bot" element={<LineBot />} />
           <Route path="staff" element={<StaffPage />} />
         </Route>
       </Routes>
