@@ -89,6 +89,31 @@ export const updateDocument = (id: number, data: Partial<Document>) =>
   api.put<Document>(`/documents/${id}`, data).then(r => r.data)
 export const deleteDocument = (id: number) => api.delete(`/documents/${id}`)
 
+// อ่านบิลจาก PDF (preview)
+export interface ParsedBillItem {
+  description: string
+  quantity?: number
+  unit_price?: number
+  amount: number
+}
+export interface ParsedBill {
+  vendor_name: string
+  vendor_tax_id?: string
+  doc_number: string
+  doc_date: string
+  sub_total?: number
+  vat_amount?: number
+  grand_total: number
+  items: ParsedBillItem[]
+}
+export const parseBillPdf = (file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api
+    .post<{ filename: string; parsed: ParsedBill }>('/documents/parse-pdf', fd)
+    .then(r => r.data)
+}
+
 // Invoices
 export const getInvoices = (params?: { client_id?: number; status?: string; year?: number }) =>
   api.get<Invoice[]>('/invoices', { params }).then(r => r.data)

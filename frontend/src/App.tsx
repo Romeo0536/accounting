@@ -7,6 +7,7 @@ import MonthlyJobs from './pages/MonthlyJobs'
 import AnnualJobs from './pages/AnnualJobs'
 import TaxCalendar from './pages/TaxCalendar'
 import Invoices from './pages/Invoices'
+import BillScan from './pages/BillScan'
 import StaffPage from './pages/Staff'
 import Automation from './pages/Automation'
 
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="annual-jobs" element={<AnnualJobs />} />
           <Route path="tax-calendar" element={<TaxCalendar />} />
           <Route path="invoices" element={<Invoices />} />
+          <Route path="bill-scan" element={<BillScan />} />
           <Route path="automation" element={<Automation />} />
           <Route path="staff" element={<StaffPage />} />
         </Route>

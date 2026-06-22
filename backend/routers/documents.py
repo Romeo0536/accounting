@@ -1,11 +1,29 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from database import get_db
 import models
 import schemas
+import bill_parser
 
 router = APIRouter()
+
+
+@router.post("/parse-pdf")
+async def parse_pdf(file: UploadFile = File(...)):
+    """อ่านบิลจาก PDF ด้วย Claude vision → คืน JSON preview (ยังไม่บันทึกลง DB)"""
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="กรุณาอัปโหลดไฟล์ PDF")
+    pdf_bytes = await file.read()
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="ไฟล์ว่างเปล่า")
+    try:
+        data = bill_parser.parse_bill_pdf(pdf_bytes)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"อ่านบิลไม่สำเร็จ: {e}")
+    return {"filename": file.filename, "parsed": data}
 
 
 @router.get("/", response_model=List[schemas.DocumentResponse])
