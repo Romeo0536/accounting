@@ -254,3 +254,21 @@ class AutomationConfig(Base):
     value = Column(String)                              # ค่า
     description = Column(String)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+    id = Column(Integer, primary_key=True, index=True)
+    line_user_id = Column(String, nullable=False)       # ใครส่งสลิป
+    line_group_id = Column(String, nullable=True)       # จากไหน (group/DM)
+    merchant_name = Column(String)                      # ชื่อร้าน
+    amount = Column(Float, nullable=False)              # จำนวนเงิน
+    category = Column(String, default="อื่น")           # หมวดหมู่ (อาหาร/เดินทาง/อื่น)
+    receipt_date = Column(Date)                         # วันที่ในใบเสร็จ
+    receipt_time = Column(String)                       # เวลา (จากใบเสร็จ)
+    notes = Column(Text)                                # หมายเหตุ / ข้อมูลจาก OCR
+    receipt_image_path = Column(String)                 # path เก็บไฟล์รูป
+    ocr_confidence = Column(Float, default=0)           # ความแม่นยำ OCR (0-100)
+    verified = Column(Boolean, default=False)           # ผู้ใช้ยืนยันข้อมูลแล้ว?
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
