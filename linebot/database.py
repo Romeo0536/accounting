@@ -20,9 +20,18 @@ def init_db():
         email TEXT DEFAULT '',
         notifications_enabled INTEGER DEFAULT 1,
         archiving_enabled INTEGER DEFAULT 1,
+        daily_summary_enabled INTEGER DEFAULT 1,
+        stats_enabled INTEGER DEFAULT 1,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
+
+    # Migrate existing tables: add new columns if they don't exist
+    for col, default in [('daily_summary_enabled', 1), ('stats_enabled', 1)]:
+        try:
+            c.execute(f'ALTER TABLE group_settings ADD COLUMN {col} INTEGER DEFAULT {default}')
+        except Exception:
+            pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS scheduled_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

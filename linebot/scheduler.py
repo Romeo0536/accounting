@@ -36,7 +36,7 @@ def start_scheduler(line_bot_api):
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
-            'SELECT * FROM group_settings WHERE email != "" AND notifications_enabled = 1'
+            'SELECT * FROM group_settings WHERE email != "" AND daily_summary_enabled = 1'
         ).fetchall()
         conn.close()
 

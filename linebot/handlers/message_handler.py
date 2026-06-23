@@ -23,8 +23,14 @@ HELP_TEXT = f'''🍡 {BOT_NAME} — คำสั่งที่ใช้ได�
 📧 ตั้งค่าอีเมล
 !ตั้งค่าอีเมล email@example.com
 
-🔔 แจ้งเตือน
+🔔 แจ้งเตือนไฟล์ใหม่
 !เปิดแจ้งเตือน / !ปิดแจ้งเตือน
+
+📅 สรุปรายวันอัตโนมัติ (20:00 น.)
+!เปิดสรุปรายวัน / !ปิดสรุปรายวัน
+
+📊 สถิติกลุ่ม
+!เปิดสถิติ / !ปิดสถิติ
 
 📂 บันทึก
 !เปิดบันทึก / !ปิดบันทึก
@@ -145,6 +151,40 @@ def _handle_command(line_bot_api, event, text: str, group_id: str, user_id: str,
         _reply(line_bot_api, reply_token, '📵 ปิดการบันทึกแล้วค่ะ')
         return
 
+    # Toggle daily summary
+    if lower == '!เปิดสรุปรายวัน':
+        if not is_admin(user_id):
+            _reply(line_bot_api, reply_token, '⚠️ เฉพาะแอดมินเท่านั้น')
+            return
+        upsert_group_settings(group_id, daily_summary_enabled=1)
+        _reply(line_bot_api, reply_token, '📅 เปิดสรุปรายวันอัตโนมัติแล้วค่ะ!\nน้องโมจิจะส่งสรุปทุก 20:00 น. นะคะ 🍡')
+        return
+
+    if lower == '!ปิดสรุปรายวัน':
+        if not is_admin(user_id):
+            _reply(line_bot_api, reply_token, '⚠️ เฉพาะแอดมินเท่านั้น')
+            return
+        upsert_group_settings(group_id, daily_summary_enabled=0)
+        _reply(line_bot_api, reply_token, '📵 ปิดสรุปรายวันอัตโนมัติแล้วค่ะ\n(ยังส่งได้ด้วยตนเองผ่าน !ส่งสรุป)')
+        return
+
+    # Toggle stats
+    if lower == '!เปิดสถิติ':
+        if not is_admin(user_id):
+            _reply(line_bot_api, reply_token, '⚠️ เฉพาะแอดมินเท่านั้น')
+            return
+        upsert_group_settings(group_id, stats_enabled=1)
+        _reply(line_bot_api, reply_token, '📊 เปิดระบบสถิติแล้วค่ะ! ใช้คำสั่ง !สถิติ เพื่อดูยอด 7 วันย้อนหลัง 🍡')
+        return
+
+    if lower == '!ปิดสถิติ':
+        if not is_admin(user_id):
+            _reply(line_bot_api, reply_token, '⚠️ เฉพาะแอดมินเท่านั้น')
+            return
+        upsert_group_settings(group_id, stats_enabled=0)
+        _reply(line_bot_api, reply_token, '📵 ปิดระบบสถิติแล้วค่ะ')
+        return
+
     # Schedule message
     if lower.startswith('!ตั้งเวลา '):
         _handle_schedule(line_bot_api, reply_token, text, group_id, user_id)
@@ -179,6 +219,9 @@ def _handle_command(line_bot_api, event, text: str, group_id: str, user_id: str,
 
     # Stats
     if lower == '!สถิติ':
+        if not settings.get('stats_enabled', 1):
+            _reply(line_bot_api, reply_token, '📵 ระบบสถิติถูกปิดอยู่ค่ะ\nแอดมินสามารถเปิดได้ด้วย !เปิดสถิติ')
+            return
         _handle_stats(line_bot_api, reply_token, group_id)
         return
 
@@ -294,15 +337,19 @@ def _handle_send_summary(line_bot_api, reply_token: str, group_id: str, settings
 
 def _handle_status(line_bot_api, reply_token: str, group_id: str, settings: dict):
     email = settings.get('email', '') or '(ยังไม่ได้ตั้งค่า)'
-    notify = '🔔 เปิด' if settings.get('notifications_enabled', 1) else '🔕 ปิด'
-    archive = '📂 เปิด' if settings.get('archiving_enabled', 1) else '📵 ปิด'
-    upcoming = get_upcoming_scheduled_messages(group_id)
+    notify    = '🔔 เปิด' if settings.get('notifications_enabled', 1) else '🔕 ปิด'
+    archive   = '📂 เปิด' if settings.get('archiving_enabled', 1)     else '📵 ปิด'
+    daily_sum = '📅 เปิด' if settings.get('daily_summary_enabled', 1) else '📵 ปิด'
+    stats_st  = '📊 เปิด' if settings.get('stats_enabled', 1)         else '📵 ปิด'
+    upcoming  = get_upcoming_scheduled_messages(group_id)
 
     lines = [
         f'🍡 สถานะ {BOT_NAME}\n',
         f'📧 อีเมล: {email}',
-        f'การแจ้งเตือน: {notify}',
-        f'การบันทึก: {archive}',
+        f'แจ้งเตือนไฟล์ใหม่: {notify}',
+        f'สรุปรายวันอัตโนมัติ: {daily_sum}',
+        f'สถิติกลุ่ม: {stats_st}',
+        f'การบันทึกข้อมูล: {archive}',
         f'⏰ นัดหมายที่รอ: {len(upcoming)} รายการ',
         f'🆔 Group ID: {group_id}',
     ]
