@@ -50,6 +50,28 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )''')
 
+    c.execute('''CREATE TABLE IF NOT EXISTS bills (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        group_id TEXT NOT NULL,
+        file_path TEXT DEFAULT '',
+        bill_type TEXT DEFAULT 'receipt',
+        merchant TEXT DEFAULT '',
+        merchant_address TEXT DEFAULT '',
+        tax_id TEXT DEFAULT '',
+        receipt_no TEXT DEFAULT '',
+        bill_date TEXT DEFAULT '',
+        items TEXT DEFAULT '[]',
+        subtotal REAL DEFAULT 0,
+        discount REAL DEFAULT 0,
+        tax_rate REAL DEFAULT 7,
+        tax_amount REAL DEFAULT 0,
+        total REAL DEFAULT 0,
+        payment_method TEXT DEFAULT '',
+        note TEXT DEFAULT '',
+        raw_json TEXT DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )''')
+
     c.execute('''CREATE TABLE IF NOT EXISTS archive_stats (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         group_id TEXT NOT NULL,
@@ -216,3 +238,61 @@ def get_stats(group_id: str, days: int = 7) -> list:
     ).fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ─── Bills ─────────────────────────────────────────────────────────────────────
+
+def save_bill(group_id: str, data: dict, file_path: str = '') -> int:
+    import json
+    conn = get_db()
+    cursor = conn.execute(
+        '''INSERT INTO bills
+           (group_id, file_path, bill_type, merchant, merchant_address, tax_id,
+            receipt_no, bill_date, items, subtotal, discount, tax_rate, tax_amount,
+            total, payment_method, note, raw_json)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+        (
+            group_id, file_path,
+            data.get('bill_type', 'receipt'),
+            data.get('merchant', ''),
+            data.get('merchant_address', ''),
+            data.get('tax_id', ''),
+            data.get('receipt_no', ''),
+            data.get('date', ''),
+            json.dumps(data.get('items', []), ensure_ascii=False),
+            data.get('subtotal', 0),
+            data.get('discount', 0),
+            data.get('tax_rate', 7),
+            data.get('tax_amount', 0),
+            data.get('total', 0),
+            data.get('payment_method', ''),
+            data.get('note', ''),
+            json.dumps(data, ensure_ascii=False),
+        )
+    )
+    bill_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return bill_id
+
+
+def get_bills(group_id: str, limit: int = 10) -> list:
+    conn = get_db()
+    rows = conn.execute(
+        'SELECT * FROM bills WHERE group_id = ? ORDER BY created_at DESC LIMIT ?',
+        (group_id, limit)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_bill_summary(group_id: str, days: int = 30) -> dict:
+    conn = get_db()
+    row = conn.execute(
+        """SELECT COUNT(*) as count, SUM(total) as total_amount
+           FROM bills
+           WHERE group_id = ? AND created_at >= datetime('now', ? || ' days')""",
+        (group_id, f'-{days}')
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else {'count': 0, 'total_amount': 0}

@@ -89,10 +89,23 @@ def send_media_notification(to: str, group_name: str, media_type: str, filename:
     return send_email(to, subject, body, attachments)
 
 
-def send_daily_summary(to: str, group_name: str, stats: dict, chat_log_path: str = None):
+def send_daily_summary(to: str, group_name: str, stats: dict, chat_log_path: str = None,
+                       bill_summary: dict = None):
     now = datetime.now(TZ)
     date_str = now.strftime('%d/%m/%Y')
     subject = f'📊 [{group_name}] สรุปประจำวัน {date_str}'
+
+    bill_section = ''
+    if bill_summary and (bill_summary.get('count') or 0) > 0:
+        b_count = bill_summary.get('count', 0)
+        b_total = bill_summary.get('total_amount') or 0
+        bill_section = f'''
+        <div style="background:#FFFBF0; border-radius:8px; padding:15px; margin-top:10px; border-left:4px solid #FFB800;">
+          <h3 style="color:#B8860B; margin:0 0 8px;">🧾 บิล/ใบเสร็จวันนี้</h3>
+          <p style="margin:4px 0; color:#555;">จำนวน: <strong>{b_count} ใบ</strong></p>
+          <p style="margin:4px 0; color:#555;">ยอดรวม: <strong>{b_total:,.2f} ฿</strong></p>
+        </div>'''
+
     body = f'''
     <div style="font-family: 'Sarabun', sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f9f9f9; border-radius: 12px;">
       <div style="background: linear-gradient(135deg, #FF6B9D, #C44DFF); padding: 20px; border-radius: 10px; text-align: center;">
@@ -124,6 +137,7 @@ def send_daily_summary(to: str, group_name: str, stats: dict, chat_log_path: str
             <div style="color:#666; font-size:13px;">ไฟล์</div>
           </div>
         </div>
+        {bill_section}
       </div>
       <p style="text-align:center; color:#aaa; font-size:12px; margin-top:15px;">ส่งโดย น้องโมจิ 🍡 • ระบบบันทึกข้อมูลอัตโนมัติ</p>
     </div>

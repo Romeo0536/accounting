@@ -46,10 +46,13 @@ def start_scheduler(line_bot_api):
             group_name = row['group_name'] or group_id
             stats_rows = get_stats(group_id, days=1)
             stats = stats_rows[0] if stats_rows else {}
+            from database import get_bill_summary
+            bill_summary = get_bill_summary(group_id, days=1)
             chat_log = os.path.join(STORAGE_PATH, group_id, 'chat_history.txt')
             send_daily_summary(
                 email, group_name, stats,
-                chat_log if os.path.isfile(chat_log) else None
+                chat_log if os.path.isfile(chat_log) else None,
+                bill_summary=bill_summary,
             )
             logger.info(f'Daily summary sent to {email} for group {group_id}')
 

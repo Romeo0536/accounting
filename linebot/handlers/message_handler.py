@@ -8,7 +8,8 @@ from linebot.models import TextSendMessage
 from database import (
     get_group_settings, upsert_group_settings,
     add_scheduled_message, get_upcoming_scheduled_messages, delete_scheduled_message,
-    is_admin, add_admin, remove_admin, get_stats
+    is_admin, add_admin, remove_admin, get_stats,
+    get_bills, get_bill_summary
 )
 from handlers.media_handler import append_chat_log, get_group_storage_summary
 from handlers.email_sender import send_daily_summary
@@ -34,6 +35,11 @@ HELP_TEXT = f'''🍡 {BOT_NAME} — คำสั่งที่ใช้ได�
 
 📂 บันทึก
 !เปิดบันทึก / !ปิดบันทึก
+
+🧾 บิล/ใบเสร็จ (AI อ่านอัตโนมัติ)
+!บิล — ดูบิลล่าสุด 5 รายการ
+!บิล 10 — ดูบิล 10 รายการ
+!สรุปบิล — ยอดรวมบิล 30 วัน
 
 ⏰ ตั้งเวลาส่งข้อความ
 !ตั้งเวลา HH:MM ข้อความ
@@ -225,6 +231,19 @@ def _handle_command(line_bot_api, event, text: str, group_id: str, user_id: str,
         _handle_stats(line_bot_api, reply_token, group_id)
         return
 
+    # Bills list
+    m = re.match(r'^!บิล(?:\s+(\d+))?$', text)
+    if m:
+        limit = int(m.group(1)) if m.group(1) else 5
+        limit = min(limit, 20)
+        _handle_bills(line_bot_api, reply_token, group_id, limit)
+        return
+
+    # Bill summary
+    if lower == '!สรุปบิล':
+        _handle_bill_summary(line_bot_api, reply_token, group_id)
+        return
+
     # Send summary
     if lower == '!ส่งสรุป':
         if not is_admin(user_id):
@@ -352,5 +371,50 @@ def _handle_status(line_bot_api, reply_token: str, group_id: str, settings: dict
         f'การบันทึกข้อมูล: {archive}',
         f'⏰ นัดหมายที่รอ: {len(upcoming)} รายการ',
         f'🆔 Group ID: {group_id}',
+    ]
+    _reply(line_bot_api, reply_token, '\n'.join(lines))
+
+
+def _handle_bills(line_bot_api, reply_token: str, group_id: str, limit: int = 5):
+    bills = get_bills(group_id, limit=limit)
+    if not bills:
+        _reply(line_bot_api, reply_token,
+               '🧾 ยังไม่มีบิล/ใบเสร็จที่บันทึกไว้ค่ะ\n'
+               'ส่งรูปบิลหรือ PDF ใบเสร็จมาได้เลย น้องโมจิจะอ่านให้ 🍡')
+        return
+
+    type_map = {'receipt': 'ใบเสร็จ', 'invoice': 'ใบแจ้งหนี้', 'quotation': 'ใบเสนอราคา'}
+    lines = [f'🧾 บิล/ใบเสร็จล่าสุด {len(bills)} รายการ\n']
+    for b in bills:
+        btype = type_map.get(b.get('bill_type', ''), 'บิล')
+        merchant = b.get('merchant', '-') or '-'
+        date = b.get('bill_date', '') or ''
+        total = b.get('total', 0) or 0
+        receipt_no = b.get('receipt_no', '') or ''
+        no_str = f' #{receipt_no}' if receipt_no else ''
+        date_str = f' ({date})' if date else ''
+        lines.append(f'• [{btype}]{no_str} {merchant}{date_str}')
+        if total:
+            lines.append(f'  ยอด: {total:,.2f} ฿')
+
+    _reply(line_bot_api, reply_token, '\n'.join(lines))
+
+
+def _handle_bill_summary(line_bot_api, reply_token: str, group_id: str):
+    summary = get_bill_summary(group_id, days=30)
+    count = summary.get('count') or 0
+    total = summary.get('total_amount') or 0
+
+    if count == 0:
+        _reply(line_bot_api, reply_token,
+               '🧾 ยังไม่มีบิลในช่วง 30 วันที่ผ่านมาค่ะ')
+        return
+
+    lines = [
+        '🧾 สรุปบิล/ใบเสร็จ (30 วันล่าสุด)\n',
+        f'📋 จำนวน:   {count:,} ใบ',
+        f'💰 ยอดรวม:  {total:,.2f} ฿',
+        f'📊 เฉลี่ย:  {total/count:,.2f} ฿/ใบ',
+        '\nพิมพ์ !บิล เพื่อดูรายละเอียดค่ะ 🍡',
     ]
     _reply(line_bot_api, reply_token, '\n'.join(lines))

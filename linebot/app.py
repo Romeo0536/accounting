@@ -31,6 +31,7 @@ from handlers.media_handler import (
     save_image, save_video, save_file, save_audio, append_chat_log
 )
 from handlers.email_sender import send_media_notification
+from handlers.bill_reader import process_bill_async
 from scheduler import start_scheduler, stop_scheduler
 
 # ─── Init ──────────────────────────────────────────────────────────────────────
@@ -126,6 +127,10 @@ def on_image(event):
         group_name = settings.get('group_name', group_id)
         send_media_notification(settings['email'], group_name, 'image', filename, filepath)
 
+    # Async bill detection — fires and forgets, replies via push_message
+    if filepath:
+        process_bill_async(line_bot_api, group_id, filepath, filename, file_type='image')
+
 
 @handler.add(MessageEvent, message=VideoMessage)
 def on_video(event):
@@ -157,6 +162,10 @@ def on_file(event):
     if settings.get('notifications_enabled', 1) and settings.get('email') and filepath:
         group_name = settings.get('group_name', group_id)
         send_media_notification(settings['email'], group_name, 'file', filename, filepath)
+
+    # Async bill detection for PDF files
+    if filepath and filename.lower().endswith('.pdf'):
+        process_bill_async(line_bot_api, group_id, filepath, filename, file_type='pdf')
 
 
 @handler.add(MessageEvent, message=AudioMessage)
