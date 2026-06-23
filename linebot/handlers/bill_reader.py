@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import base64
 import re
 import threading
 from datetime import datetime
@@ -68,20 +67,25 @@ TEXT_BILL_PROMPT = """ข้อความต่อไปนี้คือข�
 ตอบเป็น JSON เท่านั้น"""
 
 
-def _get_client():
-    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
-    if not api_key or api_key.startswith('ใส่'):
+def _get_model():
+    api_key = os.environ.get('GEMINI_API_KEY', '')
+    if not api_key or api_key.startswith('AIzaSyx'):
         return None
     try:
-        import anthropic
-        return anthropic.Anthropic(api_key=api_key)
+        import google.generativeai as genai
+        genai.configure(api_key=api_key)
+        model_name = os.environ.get('GEMINI_MODEL', 'gemini-2.0-flash')
+        return genai.GenerativeModel(model_name)
     except ImportError:
-        logger.error('anthropic package not installed')
+        logger.error('google-generativeai package not installed')
         return None
 
 
 def _parse_json(text: str) -> dict:
     text = text.strip()
+    # Strip markdown code fences if Gemini wraps JSON in ```
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
     m = re.search(r'\{.*\}', text, re.DOTALL)
     if m:
         try:
@@ -92,53 +96,28 @@ def _parse_json(text: str) -> dict:
 
 
 def analyze_image(image_path: str) -> dict:
-    """Send image to Claude Vision and extract bill data."""
-    client = _get_client()
-    if not client:
-        logger.debug('Anthropic API key not configured, skipping bill analysis')
-        return {'is_bill': False}
-
-    ext = os.path.splitext(image_path)[1].lower()
-    media_map = {
-        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-        '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
-    }
-    media_type = media_map.get(ext, 'image/jpeg')
-
-    # Resize if too large (Claude limit ~5MB base64 = ~3.7MB raw)
-    image_data = _load_image_bytes(image_path)
-    if not image_data:
+    """Send image to Gemini Vision and extract bill data."""
+    model = _get_model()
+    if not model:
+        logger.debug('GEMINI_API_KEY not configured, skipping bill analysis')
         return {'is_bill': False}
 
     try:
-        response = client.messages.create(
-            model='claude-haiku-4-5-20251001',
-            max_tokens=1500,
-            messages=[{
-                'role': 'user',
-                'content': [
-                    {
-                        'type': 'image',
-                        'source': {
-                            'type': 'base64',
-                            'media_type': media_type,
-                            'data': base64.standard_b64encode(image_data).decode('utf-8'),
-                        },
-                    },
-                    {'type': 'text', 'text': BILL_PROMPT},
-                ],
-            }],
-        )
-        return _parse_json(response.content[0].text)
+        from PIL import Image
+        img = _open_image_resized(image_path)
+        if img is None:
+            return {'is_bill': False}
+        response = model.generate_content([BILL_PROMPT, img])
+        return _parse_json(response.text)
     except Exception as e:
-        logger.error(f'Bill image analysis error: {e}')
+        logger.error(f'Gemini image analysis error: {e}')
         return {'is_bill': False}
 
 
 def analyze_pdf(pdf_path: str) -> dict:
-    """Extract text from PDF then send to Claude for bill extraction."""
-    client = _get_client()
-    if not client:
+    """Extract text from PDF then send to Gemini for bill extraction."""
+    model = _get_model()
+    if not model:
         return {'is_bill': False}
 
     text = _extract_pdf_text(pdf_path)
@@ -146,41 +125,30 @@ def analyze_pdf(pdf_path: str) -> dict:
         logger.info(f'PDF text too short or empty: {pdf_path}')
         return {'is_bill': False}
 
-    # Trim to avoid token overflow
-    text = text[:4000]
-
     try:
-        response = client.messages.create(
-            model='claude-haiku-4-5-20251001',
-            max_tokens=1500,
-            messages=[{
-                'role': 'user',
-                'content': TEXT_BILL_PROMPT.format(text=text),
-            }],
-        )
-        return _parse_json(response.content[0].text)
+        response = model.generate_content(TEXT_BILL_PROMPT.format(text=text[:4000]))
+        return _parse_json(response.text)
     except Exception as e:
-        logger.error(f'Bill PDF analysis error: {e}')
+        logger.error(f'Gemini PDF analysis error: {e}')
         return {'is_bill': False}
 
 
-def _load_image_bytes(path: str) -> bytes | None:
+def _open_image_resized(path: str):
+    """Open image with PIL, resize if >4 MB to stay within Gemini limits."""
     try:
         from PIL import Image
         import io
-        # If > 4MB, resize before sending
-        size = os.path.getsize(path)
-        if size > 4 * 1024 * 1024:
-            img = Image.open(path)
+        img = Image.open(path)
+        if os.path.getsize(path) > 4 * 1024 * 1024:
             img.thumbnail((2000, 2000))
             buf = io.BytesIO()
             fmt = 'JPEG' if path.lower().endswith(('.jpg', '.jpeg')) else 'PNG'
             img.save(buf, format=fmt, quality=85)
-            return buf.getvalue()
-        with open(path, 'rb') as f:
-            return f.read()
+            buf.seek(0)
+            img = Image.open(buf)
+        return img
     except Exception as e:
-        logger.error(f'Failed to load image: {e}')
+        logger.error(f'Failed to open image: {e}')
         return None
 
 
