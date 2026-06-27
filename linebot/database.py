@@ -1,7 +1,10 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'mochi.db')
+# On Render: DATA_DIR=/data (persistent disk). Locally: same dir as this file.
+_data_dir = os.environ.get('DATA_DIR', os.path.dirname(__file__))
+os.makedirs(_data_dir, exist_ok=True)
+DB_PATH = os.path.join(_data_dir, 'mochi.db')
 
 
 def get_db():

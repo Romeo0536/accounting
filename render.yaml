@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: mochi-line-bot
+    runtime: python
+    rootDir: linebot
+    buildCommand: pip install -r requirements.txt
+    # 1 worker (keeps APScheduler running in one process), 4 threads for I/O concurrency
+    startCommand: gunicorn -w 1 --threads 4 -b 0.0.0.0:$PORT --timeout 60 app:app
+    healthCheckPath: /health
+    disk:
+      name: mochi-data
+      mountPath: /data
+      sizeGB: 5
+    envVars:
+      # ── Paths (persistent disk) ──────────────────────────────
+      - key: DATA_DIR
+        value: /data
+      - key: STORAGE_PATH
+        value: /data/storage
+      # ── Bot Settings ──────────────────────────────────────────
+      - key: BOT_NAME
+        value: น้องโมจิ
+      - key: TIMEZONE
+        value: Asia/Bangkok
+      # ── Secrets (set in Render Dashboard, not here) ───────────
+      # LINE_CHANNEL_ACCESS_TOKEN
+      # LINE_CHANNEL_SECRET
+      # GEMINI_API_KEY
+      # GEMINI_MODEL          (default: gemini-2.0-flash)
+      # SMTP_HOST             (default: smtp.gmail.com)
+      # SMTP_PORT             (default: 587)
+      # SMTP_USER
+      # SMTP_PASSWORD
+      # SMTP_FROM_NAME        (default: น้องโมจิ Bot)
+      # ADMIN_USER_IDS        (comma-separated LINE user IDs)
+      # ADMIN_PASSWORD        (admin panel password)
+      # ADMIN_SECRET_KEY      (random secret for Flask sessions)
+      # GDRIVE_CREDENTIALS_JSON  (path to service-account.json on disk)
+      # GDRIVE_MOCHI_FOLDER_ID   (optional Drive folder ID)

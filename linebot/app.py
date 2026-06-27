@@ -33,6 +33,7 @@ from handlers.media_handler import (
 from handlers.email_sender import send_media_notification
 from handlers.bill_reader import process_bill_async
 from scheduler import start_scheduler, stop_scheduler
+from admin.blueprint import admin_bp
 
 # ─── Init ──────────────────────────────────────────────────────────────────────
 init_db()
@@ -47,6 +48,8 @@ line_bot_api = LineBotApi(ACCESS_TOKEN)
 handler = WebhookHandler(CHANNEL_SECRET)
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('ADMIN_SECRET_KEY', 'mochi-secret-key-change-me')
+app.register_blueprint(admin_bp)
 start_scheduler(line_bot_api)
 
 # ─── Webhook ───────────────────────────────────────────────────────────────────
