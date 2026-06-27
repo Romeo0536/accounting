@@ -7,6 +7,20 @@ import pytz
 logger = logging.getLogger(__name__)
 TZ = pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Bangkok'))
 
+# One lock per xlsx path so concurrent bills to the SAME group serialize
+# (different groups still write in parallel). load → modify → save is not atomic.
+_file_locks = {}
+_locks_guard = threading.Lock()
+
+
+def _lock_for(path: str) -> threading.Lock:
+    with _locks_guard:
+        lock = _file_locks.get(path)
+        if lock is None:
+            lock = threading.Lock()
+            _file_locks[path] = lock
+        return lock
+
 THAI_MONTHS = [
     '', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
@@ -79,19 +93,7 @@ def write_bill_local(group_id: str, group_name: str, bill_data: dict,
     os.makedirs(bills_dir, exist_ok=True)
     xlsx_path = os.path.join(bills_dir, f'{year}.xlsx')
 
-    if os.path.isfile(xlsx_path):
-        wb = openpyxl.load_workbook(xlsx_path)
-    else:
-        wb = openpyxl.Workbook()
-        if 'Sheet' in wb.sheetnames:
-            del wb['Sheet']
-
-    if sheet_name not in wb.sheetnames:
-        _init_sheet(wb, sheet_name)
-
-    ws = wb[sheet_name]
     items_str = _items_summary(bill_data.get('items', []))
-
     row_data = [
         bill_data.get('date', ''),
         bill_data.get('receipt_no', ''),
@@ -110,8 +112,38 @@ def write_bill_local(group_id: str, group_name: str, bill_data: dict,
         os.path.basename(source_file_path),
         now.strftime('%Y-%m-%d %H:%M:%S'),
     ]
-    ws.append(row_data)
-    wb.save(xlsx_path)
+
+    with _lock_for(xlsx_path):
+        if os.path.isfile(xlsx_path):
+            try:
+                wb = openpyxl.load_workbook(xlsx_path)
+            except Exception as e:
+                # Corrupt/half-written file — back it up and start fresh so we
+                # never lose new bills to an unreadable workbook.
+                logger.error(f'Excel load failed ({e}); recreating {xlsx_path}')
+                try:
+                    os.rename(xlsx_path, xlsx_path + '.corrupt')
+                except Exception:
+                    pass
+                wb = openpyxl.Workbook()
+                if 'Sheet' in wb.sheetnames:
+                    del wb['Sheet']
+        else:
+            wb = openpyxl.Workbook()
+            if 'Sheet' in wb.sheetnames:
+                del wb['Sheet']
+
+        if sheet_name not in wb.sheetnames:
+            _init_sheet(wb, sheet_name)
+
+        wb[sheet_name].append(row_data)
+
+        # Atomic save: write to temp then replace, so a crash mid-save can't
+        # leave a truncated xlsx.
+        tmp_path = xlsx_path + '.tmp'
+        wb.save(tmp_path)
+        os.replace(tmp_path, xlsx_path)
+
     logger.info(f'Bill written to {xlsx_path} [{sheet_name}]')
     return xlsx_path
 

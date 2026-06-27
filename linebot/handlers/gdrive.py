@@ -1,10 +1,16 @@
 import os
+import time
 import logging
 import threading
 
 logger = logging.getLogger(__name__)
 
 MOCHI_ROOT_NAME = 'mochi'
+
+# Serialize folder get-or-create so two concurrent uploads don't create
+# duplicate "2026-06-27" folders. Cache resolved folder IDs to cut API calls.
+_folder_lock = threading.Lock()
+_folder_cache = {}
 
 
 def _get_service():
@@ -24,26 +30,39 @@ def _get_service():
 
 
 def _get_or_create_folder(service, name: str, parent_id: str) -> str:
-    """Return ID of existing folder or create it under parent."""
-    safe_name = name.replace("'", "\\'")
-    q = (
-        f"name = '{safe_name}' "
-        f"and mimeType = 'application/vnd.google-apps.folder' "
-        f"and '{parent_id}' in parents "
-        f"and trashed = false"
-    )
-    results = service.files().list(q=q, fields='files(id)', spaces='drive').execute()
-    files = results.get('files', [])
-    if files:
-        return files[0]['id']
+    """Return ID of existing folder or create it under parent (thread-safe, cached)."""
+    cache_key = f'{parent_id}/{name}'
+    cached = _folder_cache.get(cache_key)
+    if cached:
+        return cached
 
-    meta = {
-        'name': name,
-        'mimeType': 'application/vnd.google-apps.folder',
-        'parents': [parent_id],
-    }
-    folder = service.files().create(body=meta, fields='id').execute()
-    return folder['id']
+    with _folder_lock:
+        # Re-check inside the lock — another thread may have just created it.
+        cached = _folder_cache.get(cache_key)
+        if cached:
+            return cached
+
+        safe_name = name.replace("'", "\\'")
+        q = (
+            f"name = '{safe_name}' "
+            f"and mimeType = 'application/vnd.google-apps.folder' "
+            f"and '{parent_id}' in parents "
+            f"and trashed = false"
+        )
+        results = service.files().list(q=q, fields='files(id)', spaces='drive').execute()
+        files = results.get('files', [])
+        if files:
+            folder_id = files[0]['id']
+        else:
+            meta = {
+                'name': name,
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': [parent_id],
+            }
+            folder_id = service.files().create(body=meta, fields='id').execute()['id']
+
+        _folder_cache[cache_key] = folder_id
+        return folder_id
 
 
 def _mochi_root_id(service) -> str:
@@ -61,33 +80,42 @@ def get_group_folder_id(service, group_id: str, group_name: str) -> str:
     return _get_or_create_folder(service, _group_folder_name(group_id, group_name), mochi_id)
 
 
-def upload_file_to_folder(service, local_path: str, folder_id: str, filename: str = None) -> str | None:
-    """Upload or replace a file in a specific Drive folder. Returns file ID."""
-    try:
-        from googleapiclient.http import MediaFileUpload
-        import mimetypes
+def upload_file_to_folder(service, local_path: str, folder_id: str,
+                          filename: str = None, retries: int = 3) -> str | None:
+    """Upload or replace a file in a specific Drive folder. Returns file ID.
 
-        fname = filename or os.path.basename(local_path)
-        safe_fname = fname.replace("'", "\\'")
-        mime = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
+    Retries with exponential backoff on transient API/network errors.
+    """
+    from googleapiclient.http import MediaFileUpload
+    import mimetypes
 
-        q = f"name = '{safe_fname}' and '{folder_id}' in parents and trashed = false"
-        existing = service.files().list(q=q, fields='files(id)').execute().get('files', [])
-        media = MediaFileUpload(local_path, mimetype=mime, resumable=True)
+    fname = filename or os.path.basename(local_path)
+    safe_fname = fname.replace("'", "\\'")
+    mime = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
 
-        if existing:
-            result = service.files().update(
-                fileId=existing[0]['id'], media_body=media, fields='id'
-            ).execute()
-        else:
-            result = service.files().create(
-                body={'name': fname, 'parents': [folder_id]},
-                media_body=media, fields='id'
-            ).execute()
-        return result.get('id')
-    except Exception as e:
-        logger.error(f'GDrive upload_file_to_folder failed: {e}')
-        return None
+    last_err = None
+    for attempt in range(retries):
+        try:
+            q = f"name = '{safe_fname}' and '{folder_id}' in parents and trashed = false"
+            existing = service.files().list(q=q, fields='files(id)').execute().get('files', [])
+            media = MediaFileUpload(local_path, mimetype=mime, resumable=True)
+
+            if existing:
+                result = service.files().update(
+                    fileId=existing[0]['id'], media_body=media, fields='id'
+                ).execute()
+            else:
+                result = service.files().create(
+                    body={'name': fname, 'parents': [folder_id]},
+                    media_body=media, fields='id'
+                ).execute()
+            return result.get('id')
+        except Exception as e:
+            last_err = e
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt)  # 1s, 2s, 4s
+    logger.error(f'GDrive upload_file_to_folder failed after {retries} tries: {last_err}')
+    return None
 
 
 def download_file(service, file_id: str, dest_path: str) -> bool:

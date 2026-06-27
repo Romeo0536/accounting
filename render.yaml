@@ -4,8 +4,10 @@ services:
     runtime: python
     rootDir: linebot
     buildCommand: pip install -r requirements.txt
-    # 1 worker (keeps APScheduler running in one process), 4 threads for I/O concurrency
-    startCommand: gunicorn -w 1 --threads 4 -b 0.0.0.0:$PORT --timeout 60 app:app
+    # 1 worker keeps APScheduler + GDrive folder cache in a single process.
+    # 8 threads handle concurrent media downloads; 120s timeout for large videos;
+    # generous graceful-timeout so background upload threads can finish on restart.
+    startCommand: gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT --timeout 120 --graceful-timeout 30 app:app
     healthCheckPath: /health
     disk:
       name: mochi-data

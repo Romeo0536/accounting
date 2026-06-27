@@ -8,14 +8,25 @@ DB_PATH = os.path.join(_data_dir, 'mochi.db')
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # timeout=30s: wait instead of erroring when another thread holds the write lock
+    conn = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
     conn.row_factory = sqlite3.Row
+    # busy_timeout is per-connection; complements the connect() timeout
+    conn.execute('PRAGMA busy_timeout = 30000')
     return conn
 
 
 def init_db():
     conn = get_db()
     c = conn.cursor()
+
+    # WAL lets readers and one writer work concurrently — essential under
+    # gunicorn threads + background upload/excel workers hitting the DB at once.
+    try:
+        c.execute('PRAGMA journal_mode = WAL')
+        c.execute('PRAGMA synchronous = NORMAL')
+    except Exception:
+        pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS group_settings (
         group_id TEXT PRIMARY KEY,
@@ -90,6 +101,11 @@ def init_db():
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(group_id, date)
     )''')
+
+    # Indexes — keep queries fast with hundreds of groups / many bills
+    c.execute('CREATE INDEX IF NOT EXISTS idx_bills_group_created ON bills(group_id, created_at)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_sched_pending ON scheduled_messages(is_sent, scheduled_time)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_stats_group_date ON archive_stats(group_id, date)')
 
     conn.commit()
     conn.close()

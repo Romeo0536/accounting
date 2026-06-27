@@ -62,6 +62,10 @@ def webhook():
         handler.handle(body, signature)
     except InvalidSignatureError:
         abort(400)
+    except Exception as e:
+        # Always 200 on processing errors — a 500 makes LINE retry the same
+        # event, which would duplicate saved files / bills. Log and move on.
+        logger.error(f'Webhook handler error: {e}', exc_info=True)
     return 'OK'
 
 

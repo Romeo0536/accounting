@@ -11,14 +11,25 @@ _scheduler = BackgroundScheduler(timezone=TZ)
 
 def start_scheduler(line_bot_api):
     from linebot.models import TextSendMessage
-    from database import get_pending_scheduled_messages, mark_message_sent, get_stats, get_group_settings
+    from database import (
+        get_pending_scheduled_messages, mark_message_sent,
+        get_stats, get_bill_summary, get_db,
+    )
     from handlers.email_sender import send_daily_summary
-    import os
 
     STORAGE_PATH = os.environ.get('STORAGE_PATH', './storage')
 
+    # Guard: never start twice (e.g. if the module is re-imported)
+    if _scheduler.running:
+        logger.info('Scheduler already running, skipping start')
+        return
+
     def send_pending_messages():
-        msgs = get_pending_scheduled_messages()
+        try:
+            msgs = get_pending_scheduled_messages()
+        except Exception as e:
+            logger.error(f'Failed to load pending messages: {e}')
+            return
         for msg in msgs:
             try:
                 line_bot_api.push_message(
@@ -31,38 +42,46 @@ def start_scheduler(line_bot_api):
                 logger.error(f'Failed to send scheduled message #{msg["id"]}: {e}')
 
     def send_daily_summaries():
-        import sqlite3
-        from database import DB_PATH
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute(
-            'SELECT * FROM group_settings WHERE email != "" AND daily_summary_enabled = 1'
-        ).fetchall()
-        conn.close()
+        try:
+            conn = get_db()
+            rows = conn.execute(
+                "SELECT * FROM group_settings WHERE email != '' AND daily_summary_enabled = 1"
+            ).fetchall()
+            conn.close()
+        except Exception as e:
+            logger.error(f'Failed to load groups for daily summary: {e}')
+            return
 
         for row in rows:
             group_id = row['group_id']
             email = row['email']
             group_name = row['group_name'] or group_id
-            stats_rows = get_stats(group_id, days=1)
-            stats = stats_rows[0] if stats_rows else {}
-            from database import get_bill_summary
-            bill_summary = get_bill_summary(group_id, days=1)
-            chat_log = os.path.join(STORAGE_PATH, group_id, 'chat_history.txt')
-            send_daily_summary(
-                email, group_name, stats,
-                chat_log if os.path.isfile(chat_log) else None,
-                bill_summary=bill_summary,
-            )
-            logger.info(f'Daily summary sent to {email} for group {group_id}')
+            # Per-group try/except: one bad email must not abort the whole run
+            try:
+                stats_rows = get_stats(group_id, days=1)
+                stats = stats_rows[0] if stats_rows else {}
+                bill_summary = get_bill_summary(group_id, days=1)
+                chat_log = os.path.join(STORAGE_PATH, group_id, 'chat_history.txt')
+                send_daily_summary(
+                    email, group_name, stats,
+                    chat_log if os.path.isfile(chat_log) else None,
+                    bill_summary=bill_summary,
+                )
+                logger.info(f'Daily summary sent to {email} for group {group_id}')
+            except Exception as e:
+                logger.error(f'Daily summary failed for group {group_id}: {e}')
 
-    # Check scheduled messages every minute
+    # Check scheduled messages every minute.
+    # max_instances=1 + coalesce: if a run overruns (many groups), don't pile up.
     _scheduler.add_job(
         send_pending_messages,
         'interval',
         minutes=1,
         id='check_scheduled_messages',
-        replace_existing=True
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=120,
     )
 
     # Daily summary at 20:00 Bangkok time
@@ -70,7 +89,10 @@ def start_scheduler(line_bot_api):
         send_daily_summaries,
         CronTrigger(hour=20, minute=0, timezone=TZ),
         id='daily_summary',
-        replace_existing=True
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,
     )
 
     _scheduler.start()
@@ -79,5 +101,5 @@ def start_scheduler(line_bot_api):
 
 def stop_scheduler():
     if _scheduler.running:
-        _scheduler.shutdown()
+        _scheduler.shutdown(wait=False)
         logger.info('Scheduler stopped')
