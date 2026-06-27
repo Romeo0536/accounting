@@ -10,6 +10,14 @@ TZ = pytz.timezone(os.environ.get('TIMEZONE', 'Asia/Bangkok'))
 STORAGE_PATH = os.environ.get('STORAGE_PATH', './storage')
 
 
+def _gdrive_upload(filepath: str, group_id: str, group_name: str, media_type: str):
+    try:
+        from handlers.gdrive import upload_media_async
+        upload_media_async(filepath, group_id, group_name, _today(), media_type)
+    except Exception as e:
+        logger.debug(f'GDrive upload skipped: {e}')
+
+
 def _today() -> str:
     return datetime.now(TZ).strftime('%Y-%m-%d')
 
@@ -58,6 +66,7 @@ def save_image(line_bot_api, event) -> tuple[str, str]:
                 f.write(chunk)
         increment_stat(group_id, _today(), 'images_count')
         logger.info(f'Image saved: {filepath}')
+        _gdrive_upload(filepath, group_id, settings.get('group_name', ''), 'images')
         return filepath, filename
     except Exception as e:
         logger.error(f'Failed to save image: {e}')
@@ -83,6 +92,7 @@ def save_video(line_bot_api, event) -> tuple[str, str]:
                 f.write(chunk)
         increment_stat(group_id, _today(), 'videos_count')
         logger.info(f'Video saved: {filepath}')
+        _gdrive_upload(filepath, group_id, settings.get('group_name', ''), 'videos')
         return filepath, filename
     except Exception as e:
         logger.error(f'Failed to save video: {e}')
@@ -109,6 +119,7 @@ def save_file(line_bot_api, event) -> tuple[str, str]:
                 f.write(chunk)
         increment_stat(group_id, _today(), 'files_count')
         logger.info(f'File saved: {filepath}')
+        _gdrive_upload(filepath, group_id, settings.get('group_name', ''), 'files')
         return filepath, filename
     except Exception as e:
         logger.error(f'Failed to save file: {e}')
@@ -134,6 +145,7 @@ def save_audio(line_bot_api, event) -> tuple[str, str]:
                 f.write(chunk)
         increment_stat(group_id, _today(), 'files_count')
         logger.info(f'Audio saved: {filepath}')
+        _gdrive_upload(filepath, group_id, settings.get('group_name', ''), 'audio')
         return filepath, filename
     except Exception as e:
         logger.error(f'Failed to save audio: {e}')

@@ -1,10 +1,11 @@
 # install-service.ps1
-# ติดตั้ง น้องโมจิ เป็น Windows Service ด้วย NSSM
+# ติดตั้ง น้องโมจิ LINE Bot + Admin Panel เป็น Windows Service ด้วย NSSM
 # รันด้วยสิทธิ์ Administrator
 
 param(
     [string]$BotPath = (Resolve-Path "$PSScriptRoot\..\..").Path,
     [string]$ServiceName = "MochiLineBot",
+    [string]$AdminServiceName = "MochiAdmin",
     [string]$NssmPath = "C:\nssm\nssm.exe"
 )
 
@@ -53,18 +54,55 @@ if (Test-Path "$BotPath\.env") {
     }
 }
 
-# Start service
+# Start LINE Bot service
 & $NssmPath start $ServiceName
 
+# ─── Admin Panel Service ───────────────────────────────────────────────────────
+$AdminScript = "$BotPath\admin\app.py"
+
+Write-Host "[*] ติดตั้ง $AdminServiceName Service (Admin Panel)..." -ForegroundColor Cyan
+& $NssmPath stop $AdminServiceName 2>$null
+& $NssmPath remove $AdminServiceName confirm 2>$null
+
+& $NssmPath install $AdminServiceName $PythonExe $AdminScript
+& $NssmPath set $AdminServiceName AppDirectory $BotPath
+& $NssmPath set $AdminServiceName AppStdout "$LogDir\admin_stdout.log"
+& $NssmPath set $AdminServiceName AppStderr "$LogDir\admin_stderr.log"
+& $NssmPath set $AdminServiceName AppRotateFiles 1
+& $NssmPath set $AdminServiceName AppRotateBytes 10485760
+& $NssmPath set $AdminServiceName DisplayName "น้องโมจิ Admin Panel"
+& $NssmPath set $AdminServiceName Description "Admin web UI สำหรับจัดการกลุ่ม LINE (port 5002)"
+& $NssmPath set $AdminServiceName Start SERVICE_AUTO_START
+
+# Load same .env into admin service
+if (Test-Path "$BotPath\.env") {
+    $envContent = Get-Content "$BotPath\.env" | Where-Object { $_ -match "^[^#].*=.*" }
+    foreach ($line in $envContent) {
+        $parts = $line -split "=", 2
+        if ($parts.Count -eq 2) {
+            $key = $parts[0].Trim()
+            $val = $parts[1].Trim()
+            & $NssmPath set $AdminServiceName AppEnvironmentExtra "+$key=$val"
+        }
+    }
+}
+
+& $NssmPath start $AdminServiceName
+
 $status = & $NssmPath status $ServiceName
+$adminStatus = & $NssmPath status $AdminServiceName
 Write-Host ""
 Write-Host "================================================" -ForegroundColor Green
-Write-Host "  น้องโมจิ Service: $status" -ForegroundColor Green
+Write-Host "  น้องโมจิ LINE Bot: $status" -ForegroundColor Green
+Write-Host "  น้องโมจิ Admin:    $adminStatus" -ForegroundColor Green
 Write-Host "  Log: $LogDir\" -ForegroundColor Green
 Write-Host "================================================" -ForegroundColor Green
 Write-Host ""
+Write-Host "เข้าหน้า Admin: http://localhost:5002" -ForegroundColor Cyan
+Write-Host ""
 Write-Host "คำสั่งที่ใช้บ่อย:" -ForegroundColor Yellow
-Write-Host "  เริ่ม:   nssm start $ServiceName"
-Write-Host "  หยุด:   nssm stop $ServiceName"
-Write-Host "  สถานะ:  nssm status $ServiceName"
+Write-Host "  เริ่ม Bot:    nssm start $ServiceName"
+Write-Host "  หยุด Bot:    nssm stop $ServiceName"
+Write-Host "  เริ่ม Admin: nssm start $AdminServiceName"
+Write-Host "  หยุด Admin: nssm stop $AdminServiceName"
 Write-Host "  ถอนการติดตั้ง: nssm remove $ServiceName confirm"

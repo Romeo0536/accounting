@@ -1,0 +1,126 @@
+import os
+import logging
+import threading
+
+logger = logging.getLogger(__name__)
+
+MOCHI_ROOT_NAME = 'mochi'
+
+
+def _get_service():
+    """Build Drive API service from service account JSON."""
+    creds_path = os.environ.get('GDRIVE_CREDENTIALS_JSON', '')
+    if not creds_path or not os.path.isfile(creds_path):
+        return None
+    try:
+        from google.oauth2 import service_account
+        from googleapiclient.discovery import build
+        scopes = ['https://www.googleapis.com/auth/drive']
+        creds = service_account.Credentials.from_service_account_file(creds_path, scopes=scopes)
+        return build('drive', 'v3', credentials=creds, cache_discovery=False)
+    except Exception as e:
+        logger.error(f'GDrive service init failed: {e}')
+        return None
+
+
+def _get_or_create_folder(service, name: str, parent_id: str) -> str:
+    """Return ID of existing folder or create it under parent."""
+    safe_name = name.replace("'", "\\'")
+    q = (
+        f"name = '{safe_name}' "
+        f"and mimeType = 'application/vnd.google-apps.folder' "
+        f"and '{parent_id}' in parents "
+        f"and trashed = false"
+    )
+    results = service.files().list(q=q, fields='files(id)', spaces='drive').execute()
+    files = results.get('files', [])
+    if files:
+        return files[0]['id']
+
+    meta = {
+        'name': name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [parent_id],
+    }
+    folder = service.files().create(body=meta, fields='id').execute()
+    return folder['id']
+
+
+def _mochi_root_id(service) -> str:
+    parent = os.environ.get('GDRIVE_MOCHI_FOLDER_ID', 'root')
+    return _get_or_create_folder(service, MOCHI_ROOT_NAME, parent)
+
+
+def _group_folder_name(group_id: str, group_name: str) -> str:
+    name = f'{group_name} ({group_id})' if group_name else group_id
+    return name.replace('/', '-').replace('\\', '-')[:100]
+
+
+def get_group_folder_id(service, group_id: str, group_name: str) -> str:
+    mochi_id = _mochi_root_id(service)
+    return _get_or_create_folder(service, _group_folder_name(group_id, group_name), mochi_id)
+
+
+def upload_file_to_folder(service, local_path: str, folder_id: str, filename: str = None) -> str | None:
+    """Upload or replace a file in a specific Drive folder. Returns file ID."""
+    try:
+        from googleapiclient.http import MediaFileUpload
+        import mimetypes
+
+        fname = filename or os.path.basename(local_path)
+        safe_fname = fname.replace("'", "\\'")
+        mime = mimetypes.guess_type(local_path)[0] or 'application/octet-stream'
+
+        q = f"name = '{safe_fname}' and '{folder_id}' in parents and trashed = false"
+        existing = service.files().list(q=q, fields='files(id)').execute().get('files', [])
+        media = MediaFileUpload(local_path, mimetype=mime, resumable=True)
+
+        if existing:
+            result = service.files().update(
+                fileId=existing[0]['id'], media_body=media, fields='id'
+            ).execute()
+        else:
+            result = service.files().create(
+                body={'name': fname, 'parents': [folder_id]},
+                media_body=media, fields='id'
+            ).execute()
+        return result.get('id')
+    except Exception as e:
+        logger.error(f'GDrive upload_file_to_folder failed: {e}')
+        return None
+
+
+def download_file(service, file_id: str, dest_path: str) -> bool:
+    """Download a Drive file to a local path."""
+    try:
+        from googleapiclient.http import MediaIoBaseDownload
+        req = service.files().get_media(fileId=file_id)
+        with open(dest_path, 'wb') as f:
+            dl = MediaIoBaseDownload(f, req)
+            done = False
+            while not done:
+                _, done = dl.next_chunk()
+        return True
+    except Exception as e:
+        logger.error(f'GDrive download failed: {e}')
+        return False
+
+
+def upload_media_async(local_path: str, group_id: str, group_name: str,
+                       date_str: str, media_type: str):
+    """Fire-and-forget: upload media file to mochi/GROUP/DATE/TYPE/."""
+    def _worker():
+        service = _get_service()
+        if not service:
+            return
+        try:
+            group_folder_id = get_group_folder_id(service, group_id, group_name)
+            date_folder_id = _get_or_create_folder(service, date_str, group_folder_id)
+            type_folder_id = _get_or_create_folder(service, media_type, date_folder_id)
+            file_id = upload_file_to_folder(service, local_path, type_folder_id)
+            if file_id:
+                logger.info(f'GDrive upload OK: {os.path.basename(local_path)} -> {file_id}')
+        except Exception as e:
+            logger.error(f'GDrive media upload worker failed: {e}')
+
+    threading.Thread(target=_worker, daemon=True).start()

@@ -225,7 +225,7 @@ def process_bill_async(line_bot_api, group_id: str, filepath: str,
                        filename: str, file_type: str = 'image'):
     """Run bill analysis in a background thread and push result to group."""
     def _worker():
-        from database import save_bill
+        from database import save_bill, get_group_settings
         from linebot.models import TextSendMessage
 
         if file_type == 'pdf':
@@ -242,6 +242,16 @@ def process_bill_async(line_bot_api, group_id: str, filepath: str,
             reply_text = format_bill_reply(data, filename)
             line_bot_api.push_message(group_id, TextSendMessage(text=reply_text))
             logger.info(f'Bill extracted from {filename} in group {group_id}')
+
+            # Write to Excel and sync to GDrive
+            try:
+                from handlers.excel_writer import write_bill_async
+                settings = get_group_settings(group_id)
+                group_name = settings.get('group_name', '')
+                storage_path = os.environ.get('STORAGE_PATH', './storage')
+                write_bill_async(group_id, group_name, data, filepath, storage_path)
+            except Exception as ex:
+                logger.error(f'Excel/GDrive bill write failed: {ex}')
         except Exception as e:
             logger.error(f'Failed to save/push bill result: {e}')
 

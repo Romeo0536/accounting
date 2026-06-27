@@ -32,6 +32,10 @@ def init_db():
             c.execute(f'ALTER TABLE group_settings ADD COLUMN {col} INTEGER DEFAULT {default}')
         except Exception:
             pass
+    try:
+        c.execute("ALTER TABLE group_settings ADD COLUMN gdrive_folder_id TEXT DEFAULT ''")
+    except Exception:
+        pass
 
     c.execute('''CREATE TABLE IF NOT EXISTS scheduled_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -296,3 +300,62 @@ def get_bill_summary(group_id: str, days: int = 30) -> dict:
     ).fetchone()
     conn.close()
     return dict(row) if row else {'count': 0, 'total_amount': 0}
+
+
+# ─── Admin UI Queries ──────────────────────────────────────────────────────────
+
+def get_all_groups(search: str = '', page: int = 1, per_page: int = 20) -> list:
+    conn = get_db()
+    offset = (page - 1) * per_page
+    if search:
+        like = f'%{search}%'
+        rows = conn.execute(
+            '''SELECT g.*,
+                 (SELECT COUNT(*) FROM bills b WHERE b.group_id = g.group_id
+                  AND b.created_at >= datetime('now', '-30 days')) as bill_count_30d,
+                 (SELECT COALESCE(SUM(b.total),0) FROM bills b WHERE b.group_id = g.group_id
+                  AND b.created_at >= datetime('now', '-30 days')) as bill_total_30d
+               FROM group_settings g
+               WHERE g.group_id LIKE ? OR g.group_name LIKE ?
+               ORDER BY g.updated_at DESC
+               LIMIT ? OFFSET ?''',
+            (like, like, per_page, offset)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            '''SELECT g.*,
+                 (SELECT COUNT(*) FROM bills b WHERE b.group_id = g.group_id
+                  AND b.created_at >= datetime('now', '-30 days')) as bill_count_30d,
+                 (SELECT COALESCE(SUM(b.total),0) FROM bills b WHERE b.group_id = g.group_id
+                  AND b.created_at >= datetime('now', '-30 days')) as bill_total_30d
+               FROM group_settings g
+               ORDER BY g.updated_at DESC
+               LIMIT ? OFFSET ?''',
+            (per_page, offset)
+        ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def count_groups(search: str = '') -> int:
+    conn = get_db()
+    if search:
+        like = f'%{search}%'
+        row = conn.execute(
+            'SELECT COUNT(*) FROM group_settings WHERE group_id LIKE ? OR group_name LIKE ?',
+            (like, like)
+        ).fetchone()
+    else:
+        row = conn.execute('SELECT COUNT(*) FROM group_settings').fetchone()
+    conn.close()
+    return row[0] if row else 0
+
+
+def get_all_group_stats() -> dict:
+    """Return quick totals for the admin dashboard."""
+    conn = get_db()
+    groups = conn.execute('SELECT COUNT(*) FROM group_settings').fetchone()[0]
+    bills = conn.execute('SELECT COUNT(*) FROM bills').fetchone()[0]
+    bill_total = conn.execute('SELECT COALESCE(SUM(total),0) FROM bills').fetchone()[0]
+    conn.close()
+    return {'groups': groups, 'bills': bills, 'bill_total': bill_total or 0}
