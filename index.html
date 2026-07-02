@@ -128,6 +128,25 @@
   .search { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; min-width: 220px; font-family: inherit; }
 
   .hidden { display: none !important; }
+
+  /* Login screen */
+  .login-screen {
+    position: fixed; inset: 0; background: linear-gradient(135deg, #1e293b, #0f172a);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100;
+  }
+  .login-card { background: var(--card); border-radius: 16px; width: 100%; max-width: 400px; padding: 32px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+  .login-brand { font-size: 26px; font-weight: 800; text-align: center; margin-bottom: 4px; }
+  .login-brand span { color: var(--primary); }
+  .login-sub { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+  .login-tabs { display: flex; gap: 8px; background: #f1f5f9; padding: 5px; border-radius: 10px; margin-bottom: 24px; }
+  .login-tab { flex: 1; background: transparent; color: var(--muted); padding: 10px; border-radius: 7px; }
+  .login-tab.active { background: #fff; color: var(--primary); box-shadow: var(--shadow); }
+  .login-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 14px; }
+  .login-err { color: var(--red); font-size: 13px; text-align: center; margin-top: 12px; min-height: 18px; }
+
+  /* User chip */
+  #userChip { display: flex; align-items: center; gap: 10px; }
+
   @media (max-width: 720px) {
     .sidebar { width: 64px; }
     .brand { font-size: 0; padding: 20px 0; text-align: center; }
@@ -138,23 +157,33 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-<div class="app">
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-brand">HR<span> system</span></div>
+    <div class="login-sub">ระบบบริหารงานบุคคล</div>
+    <div class="login-tabs">
+      <button class="login-tab active" data-role="manager">👔 ผู้จัดการ</button>
+      <button class="login-tab" data-role="employee">👤 พนักงาน</button>
+    </div>
+    <div id="loginBody"></div>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="app hidden">
   <aside class="sidebar">
     <div class="brand">HR<span> system</span></div>
-    <nav class="nav" id="nav">
-      <a data-page="dashboard" class="active"><span class="icon">📊</span><span>แดชบอร์ด</span></a>
-      <a data-page="employees"><span class="icon">👥</span><span>พนักงาน</span></a>
-      <a data-page="attendance"><span class="icon">⏰</span><span>ลงเวลา</span></a>
-      <a data-page="leave"><span class="icon">🌴</span><span>การลา</span></a>
-      <a data-page="ot"><span class="icon">💪</span><span>โอที (OT)</span></a>
-    </nav>
+    <nav class="nav" id="nav"></nav>
     <div id="cloudBox" style="padding:14px 20px; font-size:13px; color:#cbd5e1; line-height:1.7;">กำลังโหลด...</div>
   </aside>
 
   <div class="main">
     <div class="topbar">
       <h1 id="pageTitle">แดชบอร์ด</h1>
-      <div id="topAction"></div>
+      <div style="display:flex; align-items:center; gap:18px;">
+        <div id="topAction"></div>
+        <div id="userChip"></div>
+      </div>
     </div>
     <div class="content" id="content"></div>
   </div>
@@ -195,18 +224,26 @@ function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); scheduleClou
 function seed() {
   const d = {
     employees: [
-      { id: 1, code: 'EMP001', name: 'สมชาย ใจดี', dept: 'บัญชี', position: 'สมุห์บัญชี', salary: 35000, phone: '081-234-5678', startDate: '2022-03-01', status: 'active' },
-      { id: 2, code: 'EMP002', name: 'สมหญิง รักงาน', dept: 'บุคคล', position: 'HR Manager', salary: 42000, phone: '089-111-2222', startDate: '2021-06-15', status: 'active' },
-      { id: 3, code: 'EMP003', name: 'มานะ ขยันมาก', dept: 'ไอที', position: 'Developer', salary: 38000, phone: '086-333-4444', startDate: '2023-01-10', status: 'active' },
+      { id: 1, code: 'EMP001', name: 'สมชาย ใจดี', dept: 'บัญชี', position: 'สมุห์บัญชี', salary: 35000, phone: '081-234-5678', startDate: '2022-03-01', status: 'active', pin: '1111' },
+      { id: 2, code: 'EMP002', name: 'สมหญิง รักงาน', dept: 'บุคคล', position: 'HR Manager', salary: 42000, phone: '089-111-2222', startDate: '2021-06-15', status: 'active', pin: '2222' },
+      { id: 3, code: 'EMP003', name: 'มานะ ขยันมาก', dept: 'ไอที', position: 'Developer', salary: 38000, phone: '086-333-4444', startDate: '2023-01-10', status: 'active', pin: '3333' },
     ],
     attendance: [],
     leaves: [],
     ot: [],
+    settings: { adminPin: '9999' },
     seq: { employee: 4, attendance: 1, leave: 1, ot: 1 },
   };
   return d;
 }
+// เติมข้อมูลที่อาจขาดหายในเวอร์ชันเก่า
+function migrate() {
+  if (!DB.settings) DB.settings = { adminPin: '9999' };
+  if (DB.settings.adminPin == null) DB.settings.adminPin = '9999';
+  (DB.employees||[]).forEach(e => { if (e.pin == null) e.pin = '0000'; });
+}
 let DB = load();
+migrate();
 save();
 
 function nextId(kind) { const id = DB.seq[kind]++; save(); return id; }
@@ -215,6 +252,7 @@ function nextId(kind) { const id = DB.seq[kind]++; save(); return id; }
 const $ = (s, el=document) => el.querySelector(s);
 const money = n => Number(n||0).toLocaleString('th-TH', { minimumFractionDigits: 0 });
 const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
 const empName = id => (DB.employees.find(e=>e.id===id)||{}).name || '-';
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const thisYear = () => new Date().getFullYear();
@@ -248,25 +286,125 @@ function openModal(title, bodyHtml, onSave, saveLabel='บันทึก') {
 function closeModal() { $('#overlay').classList.remove('show'); }
 $('#overlay').onclick = e => { if (e.target.id === 'overlay') closeModal(); };
 
-/* ---------- Router ---------- */
-const PAGES = {
-  dashboard: { title: 'แดชบอร์ด', render: renderDashboard, action: '' },
-  employees: { title: 'พนักงาน', render: renderEmployees },
-  attendance: { title: 'ลงเวลาเข้า-ออก', render: renderAttendance },
-  leave: { title: 'การลางาน', render: renderLeave },
-  ot: { title: 'โอที (OT)', render: renderOT },
+const $$all = (s, el=document) => Array.from(el.querySelectorAll(s));
+
+/* ---------- Session / Auth ---------- */
+let session = null; // { role: 'manager' | 'employee', empId?: number }
+function loadSession() { try { session = JSON.parse(sessionStorage.getItem('hr_session')); } catch(e) { session = null; } }
+function setSession(s) { session = s; if (s) sessionStorage.setItem('hr_session', JSON.stringify(s)); else sessionStorage.removeItem('hr_session'); }
+
+let loginRole = 'manager';
+function showLogin() {
+  $('.app').classList.add('hidden');
+  $('#loginScreen').classList.remove('hidden');
+  $$all('.login-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.role === loginRole);
+    t.onclick = () => { loginRole = t.dataset.role; $('#loginErr').textContent = ''; showLogin(); };
+  });
+  renderLoginBody();
+}
+function renderLoginBody() {
+  const body = $('#loginBody');
+  if (loginRole === 'manager') {
+    body.innerHTML = `
+      <div class="field"><label>รหัสผ่านผู้จัดการ (PIN)</label>
+        <input id="lg_pin" type="password" placeholder="••••" autocomplete="off"></div>
+      <button class="btn-primary" id="lg_go" style="width:100%">เข้าสู่ระบบ</button>
+      <div class="login-hint">รหัสเริ่มต้น: <strong>9999</strong> (เปลี่ยนได้ในเมนูพนักงาน)</div>`;
+    $('#lg_go').onclick = doManagerLogin;
+    $('#lg_pin').onkeydown = e => { if (e.key === 'Enter') doManagerLogin(); };
+    setTimeout(() => $('#lg_pin') && $('#lg_pin').focus(), 50);
+  } else {
+    const opts = DB.employees.filter(e => e.status === 'active')
+      .map(e => `<option value="${e.id}">${esc(e.name)} (${esc(e.code)})</option>`).join('');
+    body.innerHTML = `
+      <div class="field"><label>เลือกชื่อพนักงาน</label>
+        <select id="lg_emp">${opts || '<option disabled>ยังไม่มีพนักงาน</option>'}</select></div>
+      <div class="field"><label>รหัส PIN ของคุณ</label>
+        <input id="lg_pin" type="password" placeholder="••••" autocomplete="off"></div>
+      <button class="btn-primary" id="lg_go" style="width:100%">เข้าสู่ระบบ</button>
+      <div class="login-hint">ไม่ทราบรหัส? สอบถามผู้จัดการ (ตั้งได้ในข้อมูลพนักงาน)</div>`;
+    $('#lg_go').onclick = doEmployeeLogin;
+    $('#lg_pin').onkeydown = e => { if (e.key === 'Enter') doEmployeeLogin(); };
+  }
+}
+function doManagerLogin() {
+  const pin = $('#lg_pin').value;
+  if (pin === String(DB.settings.adminPin)) { setSession({ role: 'manager' }); startApp(); }
+  else $('#loginErr').textContent = 'รหัสผ่านไม่ถูกต้อง';
+}
+function doEmployeeLogin() {
+  const empId = Number($('#lg_emp').value);
+  const emp = DB.employees.find(e => e.id === empId);
+  if (!emp) { $('#loginErr').textContent = 'กรุณาเลือกพนักงาน'; return; }
+  if ($('#lg_pin').value === String(emp.pin)) { setSession({ role: 'employee', empId }); startApp(); }
+  else $('#loginErr').textContent = 'รหัส PIN ไม่ถูกต้อง';
+}
+function logout() { setSession(null); $('#loginErr').textContent = ''; showLogin(); }
+
+function startApp() {
+  $('#loginScreen').classList.add('hidden');
+  $('.app').classList.remove('hidden');
+  buildNav();
+  renderUserChip();
+  go(navForRole()[0].page);
+}
+function renderUserChip() {
+  if (session.role === 'manager') {
+    $('#userChip').innerHTML = `<span class="badge blue">👔 ผู้จัดการ</span>
+      <button class="btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>`;
+  } else {
+    $('#userChip').innerHTML = `<span class="badge green">👤 ${esc(empName(session.empId))}</span>
+      <button class="btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>`;
+  }
+}
+
+/* ---------- Router (role-aware) ---------- */
+const NAV = {
+  manager: [
+    { page: 'dashboard', icon: '📊', label: 'แดชบอร์ด' },
+    { page: 'employees', icon: '👥', label: 'พนักงาน' },
+    { page: 'attendance', icon: '⏰', label: 'ลงเวลา' },
+    { page: 'leave', icon: '🌴', label: 'การลา' },
+    { page: 'ot', icon: '💪', label: 'โอที (OT)' },
+  ],
+  employee: [
+    { page: 'myprofile', icon: '👤', label: 'ข้อมูลของฉัน' },
+    { page: 'myattendance', icon: '⏰', label: 'ลงเวลาของฉัน' },
+    { page: 'myleave', icon: '🌴', label: 'ลางาน' },
+    { page: 'myot', icon: '💪', label: 'โอทีของฉัน' },
+  ],
 };
-let currentPage = 'dashboard';
+function navForRole() { return NAV[session.role]; }
+function buildNav() {
+  const nav = $('#nav');
+  nav.innerHTML = navForRole().map(n =>
+    `<a data-page="${n.page}"><span class="icon">${n.icon}</span><span>${n.label}</span></a>`).join('');
+  $$all('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
+}
+
+const PAGES = {
+  dashboard:    { title: 'แดชบอร์ด',        render: renderDashboard,    role: 'manager' },
+  employees:    { title: 'พนักงาน',          render: renderEmployees,    role: 'manager' },
+  attendance:   { title: 'ลงเวลาเข้า-ออก',   render: renderAttendance,   role: 'manager' },
+  leave:        { title: 'การลางาน',         render: renderLeave,        role: 'manager' },
+  ot:           { title: 'โอที (OT)',        render: renderOT,           role: 'manager' },
+  myprofile:    { title: 'ข้อมูลของฉัน',      render: renderMyProfile,    role: 'employee' },
+  myattendance: { title: 'ลงเวลาของฉัน',      render: renderMyAttendance, role: 'employee' },
+  myleave:      { title: 'การลาของฉัน',       render: renderMyLeave,      role: 'employee' },
+  myot:         { title: 'โอทีของฉัน',        render: renderMyOT,         role: 'employee' },
+};
+let currentPage = null;
 
 function go(page) {
+  const def = PAGES[page];
+  if (!def || def.role !== session.role) page = navForRole()[0].page; // กันเข้าหน้าที่ไม่มีสิทธิ์
   currentPage = page;
   $$all('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
   $('#pageTitle').textContent = PAGES[page].title;
   $('#topAction').innerHTML = '';
   PAGES[page].render();
 }
-const $$all = (s, el=document) => Array.from(el.querySelectorAll(s));
-$$all('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
 
 /* =========================================================
    DASHBOARD
@@ -321,8 +459,10 @@ function renderDashboard() {
    ========================================================= */
 let empSearch = '';
 function renderEmployees() {
-  $('#topAction').innerHTML = `<button class="btn-primary" id="addEmp">+ เพิ่มพนักงาน</button>`;
+  $('#topAction').innerHTML = `<button class="btn-ghost" id="adminPin">🔑 รหัสผู้จัดการ</button>
+    <button class="btn-primary" id="addEmp">+ เพิ่มพนักงาน</button>`;
   $('#addEmp').onclick = () => empForm();
+  $('#adminPin').onclick = () => adminPinForm();
 
   const list = DB.employees.filter(e =>
     !empSearch || (e.name+e.code+e.dept+e.position).toLowerCase().includes(empSearch.toLowerCase()));
@@ -379,6 +519,8 @@ function empForm(id) {
         <option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option>
       </select></div>
     </div>
+    <div class="field"><label>รหัส PIN สำหรับเข้าระบบพนักงาน</label>
+      <input id="f_pin" value="${esc(e.pin||'0000')}" placeholder="เช่น 1234"></div>
   `, () => {
     const name = $('#f_name').value.trim();
     if (!name) { alert('กรุณากรอกชื่อ-สกุล'); return false; }
@@ -387,6 +529,7 @@ function empForm(id) {
       dept: $('#f_dept').value, position: $('#f_position').value.trim(),
       salary: Number($('#f_salary').value)||0, phone: $('#f_phone').value.trim(),
       startDate: $('#f_start').value, status: $('#f_status').value,
+      pin: $('#f_pin').value.trim() || '0000',
     };
     if (id) Object.assign(e, data);
     else DB.employees.push({ id: nextId('employee'), ...data });
@@ -398,6 +541,18 @@ function delEmp(id) {
   if (confirm(`ลบพนักงาน "${e.name}" ?\n(ข้อมูลลงเวลา/ลา/OT จะยังคงอยู่)`)) {
     DB.employees = DB.employees.filter(x=>x.id!==id); save(); renderEmployees();
   }
+}
+function adminPinForm() {
+  openModal('เปลี่ยนรหัสผ่านผู้จัดการ', `
+    <div class="field"><label>รหัสผ่านใหม่ (PIN)</label><input id="ap_new" placeholder="อย่างน้อย 4 ตัว"></div>
+    <div class="field"><label>ยืนยันรหัสผ่านใหม่</label><input id="ap_confirm"></div>
+  `, () => {
+    const n = $('#ap_new').value.trim();
+    if (n.length < 4) { alert('รหัสผ่านต้องมีอย่างน้อย 4 ตัว'); return false; }
+    if (n !== $('#ap_confirm').value.trim()) { alert('รหัสผ่านยืนยันไม่ตรงกัน'); return false; }
+    DB.settings.adminPin = n; save();
+    alert('เปลี่ยนรหัสผ่านผู้จัดการเรียบร้อย');
+  });
 }
 
 /* =========================================================
@@ -516,12 +671,16 @@ function renderLeave() {
       </table>
     </div>`;
 }
-function leaveForm() {
-  const opts = DB.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
-  if (!opts) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+function leaveForm(fixedEmpId) {
+  const active = DB.employees.filter(e=>e.status==='active');
+  if (!active.length) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+  const empField = fixedEmpId
+    ? `<div class="field"><label>พนักงาน</label><input value="${esc(empName(fixedEmpId))}" disabled></div>`
+    : `<div class="field"><label>พนักงาน *</label><select id="l_emp">${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></div>`;
+  const getEmpId = () => fixedEmpId || Number($('#l_emp').value);
   const typeOpts = Object.entries(LEAVE_TYPES).map(([k,v])=>`<option value="${k}">${v} (สิทธิ ${LEAVE_QUOTA[k]} วัน/ปี)</option>`).join('');
   openModal('ยื่นคำขอลา', `
-    <div class="field"><label>พนักงาน *</label><select id="l_emp">${opts}</select></div>
+    ${empField}
     <div class="field"><label>ประเภทการลา</label><select id="l_type">${typeOpts}</select></div>
     <div class="row2">
       <div class="field"><label>ตั้งแต่วันที่</label><input id="l_from" type="date" value="${todayStr()}"></div>
@@ -530,20 +689,21 @@ function leaveForm() {
     <div class="field"><label>เหตุผล</label><textarea id="l_reason" rows="2"></textarea></div>
     <div id="l_quota" style="font-size:13px;color:var(--muted)"></div>
   `, () => {
-    const empId = Number($('#l_emp').value);
+    const empId = getEmpId();
     const type = $('#l_type').value;
     const from = $('#l_from').value, to = $('#l_to').value;
     if (new Date(to) < new Date(from)) { alert('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม'); return false; }
     DB.leaves.push({ id: nextId('leave'), empId, type, from, to, reason: $('#l_reason').value.trim(), status: 'pending' });
-    save(); renderLeave();
+    save(); PAGES[currentPage].render();
   }, 'ยื่นคำขอ');
 
   const updateQuota = () => {
-    const empId = Number($('#l_emp').value), type = $('#l_type').value;
+    const empId = getEmpId(), type = $('#l_type').value;
     const used = usedLeave(empId, type), quota = LEAVE_QUOTA[type];
     $('#l_quota').innerHTML = `สิทธิคงเหลือปีนี้: <strong style="color:${quota-used>0?'var(--green)':'var(--red)'}">${quota-used}/${quota} วัน</strong> (ใช้ไปแล้ว ${used} วัน)`;
   };
-  $('#l_emp').onchange = updateQuota; $('#l_type').onchange = updateQuota; updateQuota();
+  if (!fixedEmpId) $('#l_emp').onchange = updateQuota;
+  $('#l_type').onchange = updateQuota; updateQuota();
 }
 function setLeave(id, status) {
   const l = DB.leaves.find(x=>x.id===id);
@@ -553,7 +713,7 @@ function setLeave(id, status) {
   }
   l.status = status; save(); renderLeave();
 }
-function delLeave(id) { if(confirm('ลบคำขอลานี้?')){ DB.leaves = DB.leaves.filter(x=>x.id!==id); save(); renderLeave(); } }
+function delLeave(id) { if(confirm('ลบ/ยกเลิกคำขอลานี้?')){ DB.leaves = DB.leaves.filter(x=>x.id!==id); save(); PAGES[currentPage].render(); } }
 
 /* =========================================================
    OT (โอที)
@@ -600,11 +760,15 @@ function renderOT() {
     </div>`;
 }
 function otPay(o) { return Math.round(hourlyRate(o.empId) * (o.minutes/60) * OT_RATE); }
-function otForm() {
-  const opts = DB.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
-  if (!opts) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+function otForm(fixedEmpId) {
+  const active = DB.employees.filter(e=>e.status==='active');
+  if (!active.length) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+  const empField = fixedEmpId
+    ? `<div class="field"><label>พนักงาน</label><input value="${esc(empName(fixedEmpId))}" disabled></div>`
+    : `<div class="field"><label>พนักงาน *</label><select id="o_emp">${active.map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('')}</select></div>`;
+  const getEmpId = () => fixedEmpId || Number($('#o_emp').value);
   openModal('บันทึกโอที (OT)', `
-    <div class="field"><label>พนักงาน *</label><select id="o_emp">${opts}</select></div>
+    ${empField}
     <div class="field"><label>วันที่</label><input id="o_date" type="date" value="${todayStr()}"></div>
     <div class="row2">
       <div class="field"><label>เวลาเริ่ม</label><input id="o_from" type="time" value="18:00"></div>
@@ -613,25 +777,143 @@ function otForm() {
     <div class="field"><label>หมายเหตุ</label><input id="o_note" placeholder="เช่น ปิดงบสิ้นเดือน"></div>
     <div id="o_preview" style="font-size:13px;color:var(--muted)"></div>
   `, () => {
-    const empId = Number($('#o_emp').value);
+    const empId = getEmpId();
     const from = $('#o_from').value, to = $('#o_to').value;
     const minutes = minutesBetween(from, to);
     if (minutes <= 0) { alert('เวลาสิ้นสุดต้องหลังเวลาเริ่ม'); return false; }
     DB.ot.push({ id: nextId('ot'), empId, date: $('#o_date').value, from, to, minutes, note: $('#o_note').value.trim() });
-    save(); renderOT();
+    save(); PAGES[currentPage].render();
   });
   const preview = () => {
-    const empId = Number($('#o_emp').value);
     const minutes = minutesBetween($('#o_from').value, $('#o_to').value);
     if (minutes > 0) {
-      const pay = Math.round(hourlyRate(empId) * (minutes/60) * OT_RATE);
+      const pay = Math.round(hourlyRate(getEmpId()) * (minutes/60) * OT_RATE);
       $('#o_preview').innerHTML = `⏱️ ${fmtHours(minutes)} · ค่า OT โดยประมาณ <strong>฿${money(pay)}</strong>`;
     } else $('#o_preview').textContent = '';
   };
-  ['o_emp','o_from','o_to'].forEach(id => $('#'+id).oninput = preview);
+  ['o_emp','o_from','o_to'].forEach(id => { const el = $('#'+id); if (el) el.oninput = preview; });
   preview();
 }
-function delOt(id) { DB.ot = DB.ot.filter(o=>o.id!==id); save(); renderOT(); }
+function delOt(id) { DB.ot = DB.ot.filter(o=>o.id!==id); save(); PAGES[currentPage].render(); }
+
+/* =========================================================
+   EMPLOYEE PAGES (มุมมองพนักงาน — เห็นเฉพาะของตัวเอง)
+   ========================================================= */
+function myEmp() { return DB.employees.find(e => e.id === session.empId); }
+
+function renderMyProfile() {
+  const e = myEmp();
+  if (!e) { $('#content').innerHTML = '<div class="card"><div class="empty">ไม่พบข้อมูลพนักงานของคุณ กรุณาติดต่อผู้จัดการ</div></div>'; return; }
+  const month = todayStr().slice(0,7);
+  const otMin = DB.ot.filter(o=>o.empId===e.id && o.date.slice(0,7)===month).reduce((s,o)=>s+o.minutes,0);
+  const attCount = DB.attendance.filter(a=>a.empId===e.id && a.date.slice(0,7)===month).length;
+  const leaveRows = Object.entries(LEAVE_TYPES).map(([k,v])=>{
+    const used = usedLeave(e.id,k), q = LEAVE_QUOTA[k];
+    return `<tr><td>${v}</td><td>${used} วัน</td><td><strong style="color:${q-used>0?'var(--green)':'var(--red)'}">${q-used}/${q} วัน</strong></td></tr>`;
+  }).join('');
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">ลงเวลาเดือนนี้</div><div class="value blue">${attCount} วัน</div></div>
+      <div class="stat"><div class="label">OT เดือนนี้</div><div class="value">${fmtHours(otMin)}</div></div>
+      <div class="stat"><div class="label">เงินเดือน</div><div class="value">฿${money(e.salary)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>ข้อมูลส่วนตัว</h2></div>
+      <div class="card-body"><table>
+        <tr><th style="width:160px">รหัสพนักงาน</th><td>${esc(e.code)}</td></tr>
+        <tr><th>ชื่อ-สกุล</th><td>${esc(e.name)}</td></tr>
+        <tr><th>แผนก</th><td>${esc(e.dept)}</td></tr>
+        <tr><th>ตำแหน่ง</th><td>${esc(e.position)}</td></tr>
+        <tr><th>เบอร์โทร</th><td>${esc(e.phone||'-')}</td></tr>
+        <tr><th>วันเริ่มงาน</th><td>${esc(e.startDate||'-')}</td></tr>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>สิทธิการลาคงเหลือ (ปี ${thisYear()+543})</h2></div>
+      <table><thead><tr><th>ประเภท</th><th>ใช้ไปแล้ว</th><th>คงเหลือ</th></tr></thead><tbody>${leaveRows}</tbody></table>
+    </div>`;
+}
+
+function clockIn() {
+  const today = todayStr();
+  if (DB.attendance.find(a=>a.empId===session.empId && a.date===today)) { alert('คุณลงเวลาเข้าวันนี้แล้ว'); return; }
+  DB.attendance.push({ id: nextId('attendance'), empId: session.empId, date: today, checkIn: nowTime(), checkOut: '', note: '' });
+  save(); renderMyAttendance();
+}
+function clockOut() {
+  const rec = DB.attendance.find(a=>a.empId===session.empId && a.date===todayStr());
+  if (!rec) { alert('ยังไม่ได้ลงเวลาเข้า'); return; }
+  if (rec.checkOut) { alert('คุณลงเวลาออกแล้ว'); return; }
+  rec.checkOut = nowTime(); save(); renderMyAttendance();
+}
+function renderMyAttendance() {
+  const today = todayStr();
+  const rec = DB.attendance.find(a=>a.empId===session.empId && a.date===today);
+  let actionBtn;
+  if (!rec) actionBtn = `<button class="btn-green" id="clockBtn">🟢 ลงเวลาเข้า (${nowTime()})</button>`;
+  else if (!rec.checkOut) actionBtn = `<button class="btn-primary" id="clockBtn">🔴 ลงเวลาออก (${nowTime()})</button>`;
+  else actionBtn = `<span class="badge green">✓ ลงเวลาครบแล้ววันนี้</span>`;
+  $('#topAction').innerHTML = actionBtn;
+  const btn = $('#clockBtn');
+  if (btn) btn.onclick = () => { rec ? clockOut() : clockIn(); };
+
+  const mine = DB.attendance.filter(a=>a.empId===session.empId).sort((a,b)=>b.date.localeCompare(a.date));
+  const rows = mine.map(a=>{
+    const late = a.checkIn && minutesBetween(WORK_START,a.checkIn)>0;
+    return `<tr><td>${a.date}</td><td>${a.checkIn||'-'} ${late?'<span class="badge red">สาย</span>':''}</td>
+      <td>${a.checkOut||'-'}</td><td>${a.checkOut?fmtHours(minutesBetween(a.checkIn,a.checkOut)):'<span class="badge amber">ยังไม่ออก</span>'}</td></tr>`;
+  }).join('') || `<tr><td colspan="4" class="empty">ยังไม่มีประวัติการลงเวลา</td></tr>`;
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>ลงเวลาวันนี้ · ${today}</h2><span class="badge gray">เวลาทำงาน ${WORK_START}–${WORK_END}</span></div>
+      <table><thead><tr><th>วันที่</th><th>เวลาเข้า</th><th>เวลาออก</th><th>ชั่วโมงทำงาน</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+function renderMyLeave() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addLeave">+ ยื่นคำขอลา</button>`;
+  $('#addLeave').onclick = () => leaveForm(session.empId);
+  const mine = DB.leaves.filter(l=>l.empId===session.empId).reverse();
+  const rows = mine.map(l=>`<tr>
+    <td><span class="badge blue">${LEAVE_TYPES[l.type]}</span></td>
+    <td>${l.from} → ${l.to}</td><td>${daysBetween(l.from,l.to)} วัน</td>
+    <td>${esc(l.reason||'-')}</td><td>${leaveStatusBadge(l.status)}</td>
+    <td>${l.status==='pending'?`<button class="btn-danger btn-sm" onclick="delLeave(${l.id})">ยกเลิก</button>`:''}</td>
+  </tr>`).join('') || `<tr><td colspan="6" class="empty">ยังไม่มีคำขอลา</td></tr>`;
+  const quotaCards = Object.entries(LEAVE_TYPES).map(([k,v])=>{
+    const used=usedLeave(session.empId,k), q=LEAVE_QUOTA[k];
+    return `<div class="stat"><div class="label">${v}</div><div class="value ${q-used>0?'green':'red'}">${q-used}<span style="font-size:14px;color:var(--muted);font-weight:400"> /${q} วัน</span></div></div>`;
+  }).join('');
+  $('#content').innerHTML = `
+    <div class="stat-grid">${quotaCards}</div>
+    <div class="card">
+      <div class="card-head"><h2>คำขอลาของฉัน</h2></div>
+      <table><thead><tr><th>ประเภท</th><th>ช่วงวันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
+
+function renderMyOT() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addOt">+ บันทึก OT</button>`;
+  $('#addOt').onclick = () => otForm(session.empId);
+  const month = todayStr().slice(0,7);
+  const mine = DB.ot.filter(o=>o.empId===session.empId);
+  const monthList = mine.filter(o=>o.date.slice(0,7)===month);
+  const monthMin = monthList.reduce((s,o)=>s+o.minutes,0);
+  const monthPay = monthList.reduce((s,o)=>s+otPay(o),0);
+  const rows = [...mine].reverse().map(o=>`<tr>
+    <td>${o.date}</td><td>${o.from}–${o.to}</td><td>${fmtHours(o.minutes)}</td><td>฿${money(otPay(o))}</td>
+    <td>${esc(o.note||'-')}</td><td><button class="btn-danger btn-sm" onclick="delOt(${o.id})">ลบ</button></td>
+  </tr>`).join('') || `<tr><td colspan="6" class="empty">ยังไม่มีบันทึก OT</td></tr>`;
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">OT เดือนนี้</div><div class="value blue">${fmtHours(monthMin)}</div></div>
+      <div class="stat"><div class="label">ค่า OT เดือนนี้ (ประมาณ)</div><div class="value green">฿${money(monthPay)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>บันทึก OT ของฉัน</h2></div>
+      <table><thead><tr><th>วันที่</th><th>ช่วงเวลา</th><th>ชั่วโมง</th><th>ค่า OT</th><th>หมายเหตุ</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+    </div>`;
+}
 
 /* =========================================================
    CLOUD SYNC — Google Drive
@@ -672,7 +954,7 @@ async function onSignedIn() {
     if (id) {
       cloud.fileId = id;
       const remote = await driveDownload(id);
-      if (remote && remote.employees) { DB = remote; localStorage.setItem(DB_KEY, JSON.stringify(DB)); go(currentPage); }
+      if (remote && remote.employees) { DB = remote; migrate(); localStorage.setItem(DB_KEY, JSON.stringify(DB)); if (session) go(currentPage); }
     } else {
       cloud.fileId = await driveCreate(DB); // อัปโหลดข้อมูลปัจจุบันขึ้นไปเป็นไฟล์ใหม่
     }
@@ -734,7 +1016,9 @@ async function driveUpdate(id, data) {
 }
 
 /* ---------- Start ---------- */
-go('dashboard');
+loadSession();
+if (session && (session.role === 'manager' || DB.employees.find(e => e.id === session.empId))) startApp();
+else { setSession(null); showLogin(); }
 initCloud();
 </script>
 </body>
