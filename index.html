@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบบริหารงานบุคคล (HR)</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --green: #16a34a;
+    --amber: #d97706;
+    --red: #dc2626;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Sarabun", "Noto Sans Thai", Tahoma, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  .app { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px; background: #0f172a; color: #cbd5e1;
+    display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .brand { padding: 20px; font-size: 18px; font-weight: 700; color: #fff; border-bottom: 1px solid #1e293b; }
+  .brand span { color: #60a5fa; }
+  .nav { padding: 12px 0; flex: 1; }
+  .nav a {
+    display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+    color: #cbd5e1; text-decoration: none; cursor: pointer; font-size: 15px;
+    border-left: 3px solid transparent;
+  }
+  .nav a:hover { background: #1e293b; color: #fff; }
+  .nav a.active { background: #1e293b; color: #fff; border-left-color: var(--primary); }
+  .nav .icon { width: 20px; text-align: center; }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    background: var(--card); padding: 16px 28px; box-shadow: var(--shadow);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .topbar h1 { font-size: 20px; font-weight: 700; }
+  .content { padding: 28px; flex: 1; }
+
+  /* Cards / stats */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat {
+    background: var(--card); border-radius: 12px; padding: 20px; box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .stat .label { color: var(--muted); font-size: 14px; }
+  .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+  .stat .value.blue { color: var(--primary); }
+  .stat .value.green { color: var(--green); }
+  .stat .value.amber { color: var(--amber); }
+  .stat .value.red { color: var(--red); }
+
+  .card {
+    background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+    border: 1px solid var(--border); margin-bottom: 24px; overflow: hidden;
+  }
+  .card-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .card-head h2 { font-size: 17px; font-weight: 600; }
+  .card-body { padding: 20px; }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  th { color: var(--muted); font-weight: 600; background: #f8fafc; }
+  tbody tr:hover { background: #f8fafc; }
+  .empty { text-align: center; color: var(--muted); padding: 32px; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.green { background: #dcfce7; color: #15803d; }
+  .badge.amber { background: #fef3c7; color: #b45309; }
+  .badge.red { background: #fee2e2; color: #b91c1c; }
+  .badge.gray { background: #e2e8f0; color: #475569; }
+  .badge.blue { background: #dbeafe; color: #1d4ed8; }
+
+  /* Buttons */
+  button, .btn {
+    font-family: inherit; font-size: 14px; cursor: pointer; border: none;
+    border-radius: 8px; padding: 9px 16px; font-weight: 600;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-sm { padding: 5px 10px; font-size: 13px; }
+  .btn-ghost { background: #f1f5f9; color: var(--text); }
+  .btn-ghost:hover { background: #e2e8f0; }
+  .btn-danger { background: #fee2e2; color: var(--red); }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-green { background: var(--green); color: #fff; }
+  .link-btn { background: none; color: var(--primary); padding: 4px 8px; }
+
+  /* Forms / modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+    display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  .modal { background: var(--card); border-radius: 14px; width: 100%; max-width: 460px; max-height: 90vh; overflow-y: auto; }
+  .modal-head { padding: 18px 22px; border-bottom: 1px solid var(--border); font-size: 17px; font-weight: 700; }
+  .modal-body { padding: 22px; }
+  .modal-foot { padding: 16px 22px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit; font-size: 14px; background: #fff;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid #bfdbfe; border-color: var(--primary); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .search { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; min-width: 220px; font-family: inherit; }
+
+  .hidden { display: none !important; }
+  @media (max-width: 720px) {
+    .sidebar { width: 64px; }
+    .brand { font-size: 0; padding: 20px 0; text-align: center; }
+    .nav a span:not(.icon) { display: none; }
+    .row2 { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">HR<span> system</span></div>
+    <nav class="nav" id="nav">
+      <a data-page="dashboard" class="active"><span class="icon">📊</span><span>แดชบอร์ด</span></a>
+      <a data-page="employees"><span class="icon">👥</span><span>พนักงาน</span></a>
+      <a data-page="attendance"><span class="icon">⏰</span><span>ลงเวลา</span></a>
+      <a data-page="leave"><span class="icon">🌴</span><span>การลา</span></a>
+      <a data-page="ot"><span class="icon">💪</span><span>โอที (OT)</span></a>
+    </nav>
+    <div style="padding:14px 20px; font-size:12px; color:#475569;">ข้อมูลถูกเก็บในเบราว์เซอร์นี้</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">แดชบอร์ด</h1>
+      <div id="topAction"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+
+<script>
+/* =========================================================
+   ระบบบริหารงานบุคคล (HR) — Single File App
+   เก็บข้อมูลด้วย localStorage
+   ========================================================= */
+
+const DB_KEY = 'hr_app_data_v1';
+
+const DEPARTMENTS = ['ผู้บริหาร', 'บัญชี', 'การเงิน', 'บุคคล', 'ขาย', 'การตลาด', 'ไอที', 'ปฏิบัติการ'];
+const LEAVE_TYPES = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน' };
+const LEAVE_QUOTA = { sick: 30, personal: 3, vacation: 6 }; // วันต่อปี (ตามกฎหมายแรงงานไทยโดยประมาณ)
+
+/* ---------- Data layer ---------- */
+function load() {
+  const raw = localStorage.getItem(DB_KEY);
+  if (raw) { try { return JSON.parse(raw); } catch(e) {} }
+  return seed();
+}
+function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+function seed() {
+  const d = {
+    employees: [
+      { id: 1, code: 'EMP001', name: 'สมชาย ใจดี', dept: 'บัญชี', position: 'สมุห์บัญชี', salary: 35000, phone: '081-234-5678', startDate: '2022-03-01', status: 'active' },
+      { id: 2, code: 'EMP002', name: 'สมหญิง รักงาน', dept: 'บุคคล', position: 'HR Manager', salary: 42000, phone: '089-111-2222', startDate: '2021-06-15', status: 'active' },
+      { id: 3, code: 'EMP003', name: 'มานะ ขยันมาก', dept: 'ไอที', position: 'Developer', salary: 38000, phone: '086-333-4444', startDate: '2023-01-10', status: 'active' },
+    ],
+    attendance: [],
+    leaves: [],
+    ot: [],
+    seq: { employee: 4, attendance: 1, leave: 1, ot: 1 },
+  };
+  return d;
+}
+let DB = load();
+save();
+
+function nextId(kind) { const id = DB.seq[kind]++; save(); return id; }
+
+/* ---------- Helpers ---------- */
+const $ = (s, el=document) => el.querySelector(s);
+const money = n => Number(n||0).toLocaleString('th-TH', { minimumFractionDigits: 0 });
+const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const empName = id => (DB.employees.find(e=>e.id===id)||{}).name || '-';
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const thisYear = () => new Date().getFullYear();
+
+function minutesBetween(t1, t2) {
+  if (!t1 || !t2) return 0;
+  const [h1,m1] = t1.split(':').map(Number);
+  const [h2,m2] = t2.split(':').map(Number);
+  return (h2*60+m2) - (h1*60+m1);
+}
+function fmtHours(mins) {
+  if (mins <= 0) return '0 ชม.';
+  const h = Math.floor(mins/60), m = mins%60;
+  return (h?h+' ชม. ':'') + (m?m+' นาที':'') || '0 ชม.';
+}
+
+/* ---------- Modal ---------- */
+function openModal(title, bodyHtml, onSave, saveLabel='บันทึก') {
+  const modal = $('#modal');
+  modal.innerHTML = `
+    <div class="modal-head">${title}</div>
+    <div class="modal-body">${bodyHtml}</div>
+    <div class="modal-foot">
+      <button class="btn-ghost" id="mCancel">ยกเลิก</button>
+      <button class="btn-primary" id="mSave">${saveLabel}</button>
+    </div>`;
+  $('#overlay').classList.add('show');
+  $('#mCancel').onclick = closeModal;
+  $('#mSave').onclick = () => { if (onSave() !== false) closeModal(); };
+}
+function closeModal() { $('#overlay').classList.remove('show'); }
+$('#overlay').onclick = e => { if (e.target.id === 'overlay') closeModal(); };
+
+/* ---------- Router ---------- */
+const PAGES = {
+  dashboard: { title: 'แดชบอร์ด', render: renderDashboard, action: '' },
+  employees: { title: 'พนักงาน', render: renderEmployees },
+  attendance: { title: 'ลงเวลาเข้า-ออก', render: renderAttendance },
+  leave: { title: 'การลางาน', render: renderLeave },
+  ot: { title: 'โอที (OT)', render: renderOT },
+};
+let currentPage = 'dashboard';
+
+function go(page) {
+  currentPage = page;
+  $$all('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
+  $('#pageTitle').textContent = PAGES[page].title;
+  $('#topAction').innerHTML = '';
+  PAGES[page].render();
+}
+const $$all = (s, el=document) => Array.from(el.querySelectorAll(s));
+$$all('#nav a').forEach(a => a.onclick = () => go(a.dataset.page));
+
+/* =========================================================
+   DASHBOARD
+   ========================================================= */
+function renderDashboard() {
+  const emps = DB.employees.filter(e => e.status === 'active');
+  const totalSalary = emps.reduce((s,e)=>s+Number(e.salary||0),0);
+  const today = todayStr();
+  const presentToday = DB.attendance.filter(a => a.date === today).length;
+  const pendingLeaves = DB.leaves.filter(l => l.status === 'pending').length;
+  const otThisMonth = DB.ot.filter(o => o.date.slice(0,7) === today.slice(0,7))
+                          .reduce((s,o)=>s+o.minutes,0);
+
+  // by department
+  const byDept = {};
+  emps.forEach(e => byDept[e.dept] = (byDept[e.dept]||0)+1);
+  const deptRows = Object.entries(byDept).sort((a,b)=>b[1]-a[1])
+    .map(([d,c]) => `<tr><td>${esc(d)}</td><td>${c} คน</td></tr>`).join('') ||
+    `<tr><td colspan="2" class="empty">ไม่มีข้อมูล</td></tr>`;
+
+  // recent leaves
+  const recentLeaves = [...DB.leaves].reverse().slice(0,5).map(l => `
+    <tr><td>${esc(empName(l.empId))}</td>
+    <td><span class="badge blue">${LEAVE_TYPES[l.type]}</span></td>
+    <td>${l.from} → ${l.to}</td>
+    <td>${leaveStatusBadge(l.status)}</td></tr>`).join('') ||
+    `<tr><td colspan="4" class="empty">ยังไม่มีคำขอลา</td></tr>`;
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">พนักงานทั้งหมด</div><div class="value blue">${emps.length}</div></div>
+      <div class="stat"><div class="label">ลงเวลาวันนี้</div><div class="value green">${presentToday}</div></div>
+      <div class="stat"><div class="label">คำขอลารออนุมัติ</div><div class="value amber">${pendingLeaves}</div></div>
+      <div class="stat"><div class="label">OT เดือนนี้</div><div class="value">${fmtHours(otThisMonth)}</div></div>
+      <div class="stat"><div class="label">ค่าจ้างรวม/เดือน</div><div class="value">฿${money(totalSalary)}</div></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1.4fr; gap:24px;" id="dashGrid">
+      <div class="card">
+        <div class="card-head"><h2>พนักงานตามแผนก</h2></div>
+        <table><thead><tr><th>แผนก</th><th>จำนวน</th></tr></thead><tbody>${deptRows}</tbody></table>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>คำขอลาล่าสุด</h2></div>
+        <table><thead><tr><th>พนักงาน</th><th>ประเภท</th><th>ช่วงวันที่</th><th>สถานะ</th></tr></thead><tbody>${recentLeaves}</tbody></table>
+      </div>
+    </div>`;
+  if (window.innerWidth < 720) $('#dashGrid').style.gridTemplateColumns = '1fr';
+}
+
+/* =========================================================
+   EMPLOYEES
+   ========================================================= */
+let empSearch = '';
+function renderEmployees() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addEmp">+ เพิ่มพนักงาน</button>`;
+  $('#addEmp').onclick = () => empForm();
+
+  const list = DB.employees.filter(e =>
+    !empSearch || (e.name+e.code+e.dept+e.position).toLowerCase().includes(empSearch.toLowerCase()));
+
+  const rows = list.map(e => `
+    <tr>
+      <td><strong>${esc(e.code)}</strong></td>
+      <td>${esc(e.name)}</td>
+      <td>${esc(e.dept)}</td>
+      <td>${esc(e.position)}</td>
+      <td>฿${money(e.salary)}</td>
+      <td>${esc(e.phone||'-')}</td>
+      <td>${e.status==='active' ? '<span class="badge green">ทำงาน</span>' : '<span class="badge gray">ลาออก</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="link-btn btn-sm" onclick="empForm(${e.id})">แก้ไข</button>
+        <button class="btn-danger btn-sm" onclick="delEmp(${e.id})">ลบ</button>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="8" class="empty">ไม่พบข้อมูลพนักงาน</td></tr>`;
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <div class="toolbar"><input class="search" id="empSearch" placeholder="🔍 ค้นหาชื่อ/รหัส/แผนก" value="${esc(empSearch)}"></div>
+        <span class="badge gray">${list.length} คน</span>
+      </div>
+      <table>
+        <thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>ตำแหน่ง</th><th>เงินเดือน</th><th>โทร</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  $('#empSearch').oninput = e => { empSearch = e.target.value; renderEmployees(); };
+}
+
+function empForm(id) {
+  const e = DB.employees.find(x=>x.id===id) || {};
+  const deptOpts = DEPARTMENTS.map(d=>`<option ${e.dept===d?'selected':''}>${d}</option>`).join('');
+  openModal(id?'แก้ไขข้อมูลพนักงาน':'เพิ่มพนักงานใหม่', `
+    <div class="row2">
+      <div class="field"><label>รหัสพนักงาน</label><input id="f_code" value="${esc(e.code||('EMP'+String(DB.seq.employee).padStart(3,'0')))}"></div>
+      <div class="field"><label>ชื่อ-สกุล *</label><input id="f_name" value="${esc(e.name||'')}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>แผนก</label><select id="f_dept">${deptOpts}</select></div>
+      <div class="field"><label>ตำแหน่ง</label><input id="f_position" value="${esc(e.position||'')}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>เงินเดือน (บาท)</label><input id="f_salary" type="number" value="${e.salary||''}"></div>
+      <div class="field"><label>เบอร์โทร</label><input id="f_phone" value="${esc(e.phone||'')}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>วันเริ่มงาน</label><input id="f_start" type="date" value="${e.startDate||todayStr()}"></div>
+      <div class="field"><label>สถานะ</label><select id="f_status">
+        <option value="active" ${e.status!=='resigned'?'selected':''}>ทำงาน</option>
+        <option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option>
+      </select></div>
+    </div>
+  `, () => {
+    const name = $('#f_name').value.trim();
+    if (!name) { alert('กรุณากรอกชื่อ-สกุล'); return false; }
+    const data = {
+      code: $('#f_code').value.trim(), name,
+      dept: $('#f_dept').value, position: $('#f_position').value.trim(),
+      salary: Number($('#f_salary').value)||0, phone: $('#f_phone').value.trim(),
+      startDate: $('#f_start').value, status: $('#f_status').value,
+    };
+    if (id) Object.assign(e, data);
+    else DB.employees.push({ id: nextId('employee'), ...data });
+    save(); renderEmployees();
+  });
+}
+function delEmp(id) {
+  const e = DB.employees.find(x=>x.id===id);
+  if (confirm(`ลบพนักงาน "${e.name}" ?\n(ข้อมูลลงเวลา/ลา/OT จะยังคงอยู่)`)) {
+    DB.employees = DB.employees.filter(x=>x.id!==id); save(); renderEmployees();
+  }
+}
+
+/* =========================================================
+   ATTENDANCE (ลงเวลา)
+   ========================================================= */
+let attDate = todayStr();
+const WORK_START = '09:00', WORK_END = '18:00';
+function renderAttendance() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addAtt">+ บันทึกเวลา</button>`;
+  $('#addAtt').onclick = () => attForm();
+
+  const list = DB.attendance.filter(a => a.date === attDate);
+  const rows = list.map(a => {
+    const late = a.checkIn && minutesBetween(WORK_START, a.checkIn) > 0;
+    const workMin = minutesBetween(a.checkIn, a.checkOut);
+    return `<tr>
+      <td>${esc(empName(a.empId))}</td>
+      <td>${a.checkIn||'-'} ${late?'<span class="badge red">สาย</span>':''}</td>
+      <td>${a.checkOut||'-'}</td>
+      <td>${a.checkOut?fmtHours(workMin):'<span class="badge amber">ยังไม่ออก</span>'}</td>
+      <td>${esc(a.note||'')}</td>
+      <td><button class="btn-danger btn-sm" onclick="delAtt(${a.id})">ลบ</button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" class="empty">ยังไม่มีการลงเวลาในวันนี้</td></tr>`;
+
+  const present = list.length;
+  const lateCount = list.filter(a => a.checkIn && minutesBetween(WORK_START, a.checkIn) > 0).length;
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">มาทำงาน</div><div class="value green">${present}</div></div>
+      <div class="stat"><div class="label">มาสาย</div><div class="value red">${lateCount}</div></div>
+      <div class="stat"><div class="label">ขาด/ยังไม่ลงเวลา</div><div class="value amber">${Math.max(0, DB.employees.filter(e=>e.status==='active').length - present)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="toolbar">
+          <label style="font-size:14px;color:var(--muted)">วันที่:</label>
+          <input class="search" type="date" id="attDate" value="${attDate}" style="min-width:auto">
+        </div>
+        <span class="badge gray">เวลาทำงานมาตรฐาน ${WORK_START}–${WORK_END}</span>
+      </div>
+      <table>
+        <thead><tr><th>พนักงาน</th><th>เวลาเข้า</th><th>เวลาออก</th><th>ชั่วโมงทำงาน</th><th>หมายเหตุ</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  $('#attDate').onchange = e => { attDate = e.target.value; renderAttendance(); };
+}
+function attForm() {
+  const opts = DB.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  if (!opts) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+  openModal('บันทึกเวลาเข้า-ออก', `
+    <div class="field"><label>พนักงาน *</label><select id="a_emp">${opts}</select></div>
+    <div class="field"><label>วันที่</label><input id="a_date" type="date" value="${attDate}"></div>
+    <div class="row2">
+      <div class="field"><label>เวลาเข้า</label><input id="a_in" type="time" value="09:00"></div>
+      <div class="field"><label>เวลาออก</label><input id="a_out" type="time"></div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><input id="a_note" placeholder="เช่น ทำงานนอกสถานที่"></div>
+  `, () => {
+    const empId = Number($('#a_emp').value);
+    DB.attendance.push({
+      id: nextId('attendance'), empId, date: $('#a_date').value,
+      checkIn: $('#a_in').value, checkOut: $('#a_out').value, note: $('#a_note').value.trim(),
+    });
+    save(); renderAttendance();
+  });
+}
+function delAtt(id) { DB.attendance = DB.attendance.filter(a=>a.id!==id); save(); renderAttendance(); }
+
+/* =========================================================
+   LEAVE (การลา)
+   ========================================================= */
+function leaveStatusBadge(s) {
+  return s==='approved' ? '<span class="badge green">อนุมัติ</span>'
+       : s==='rejected' ? '<span class="badge red">ไม่อนุมัติ</span>'
+       : '<span class="badge amber">รออนุมัติ</span>';
+}
+function daysBetween(from, to) {
+  const d1 = new Date(from), d2 = new Date(to);
+  return Math.floor((d2-d1)/86400000) + 1;
+}
+function usedLeave(empId, type) {
+  return DB.leaves.filter(l => l.empId===empId && l.type===type && l.status==='approved'
+      && l.from.slice(0,4)===String(thisYear()))
+    .reduce((s,l)=>s+daysBetween(l.from,l.to),0);
+}
+function renderLeave() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addLeave">+ ยื่นคำขอลา</button>`;
+  $('#addLeave').onclick = () => leaveForm();
+
+  const rows = [...DB.leaves].reverse().map(l => `
+    <tr>
+      <td>${esc(empName(l.empId))}</td>
+      <td><span class="badge blue">${LEAVE_TYPES[l.type]}</span></td>
+      <td>${l.from} → ${l.to}</td>
+      <td>${daysBetween(l.from,l.to)} วัน</td>
+      <td>${esc(l.reason||'-')}</td>
+      <td>${leaveStatusBadge(l.status)}</td>
+      <td style="white-space:nowrap">
+        ${l.status==='pending' ? `
+          <button class="btn-green btn-sm" onclick="setLeave(${l.id},'approved')">อนุมัติ</button>
+          <button class="btn-danger btn-sm" onclick="setLeave(${l.id},'rejected')">ปฏิเสธ</button>` : ''}
+        <button class="btn-danger btn-sm" onclick="delLeave(${l.id})">ลบ</button>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="7" class="empty">ยังไม่มีคำขอลา</td></tr>`;
+
+  $('#content').innerHTML = `
+    <div class="card">
+      <div class="card-head"><h2>คำขอลาทั้งหมด (ปี ${thisYear()+543})</h2>
+        <span class="badge amber">${DB.leaves.filter(l=>l.status==='pending').length} รออนุมัติ</span></div>
+      <table>
+        <thead><tr><th>พนักงาน</th><th>ประเภท</th><th>ช่วงวันที่</th><th>จำนวน</th><th>เหตุผล</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+function leaveForm() {
+  const opts = DB.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  if (!opts) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+  const typeOpts = Object.entries(LEAVE_TYPES).map(([k,v])=>`<option value="${k}">${v} (สิทธิ ${LEAVE_QUOTA[k]} วัน/ปี)</option>`).join('');
+  openModal('ยื่นคำขอลา', `
+    <div class="field"><label>พนักงาน *</label><select id="l_emp">${opts}</select></div>
+    <div class="field"><label>ประเภทการลา</label><select id="l_type">${typeOpts}</select></div>
+    <div class="row2">
+      <div class="field"><label>ตั้งแต่วันที่</label><input id="l_from" type="date" value="${todayStr()}"></div>
+      <div class="field"><label>ถึงวันที่</label><input id="l_to" type="date" value="${todayStr()}"></div>
+    </div>
+    <div class="field"><label>เหตุผล</label><textarea id="l_reason" rows="2"></textarea></div>
+    <div id="l_quota" style="font-size:13px;color:var(--muted)"></div>
+  `, () => {
+    const empId = Number($('#l_emp').value);
+    const type = $('#l_type').value;
+    const from = $('#l_from').value, to = $('#l_to').value;
+    if (new Date(to) < new Date(from)) { alert('วันสิ้นสุดต้องไม่ก่อนวันเริ่ม'); return false; }
+    DB.leaves.push({ id: nextId('leave'), empId, type, from, to, reason: $('#l_reason').value.trim(), status: 'pending' });
+    save(); renderLeave();
+  }, 'ยื่นคำขอ');
+
+  const updateQuota = () => {
+    const empId = Number($('#l_emp').value), type = $('#l_type').value;
+    const used = usedLeave(empId, type), quota = LEAVE_QUOTA[type];
+    $('#l_quota').innerHTML = `สิทธิคงเหลือปีนี้: <strong style="color:${quota-used>0?'var(--green)':'var(--red)'}">${quota-used}/${quota} วัน</strong> (ใช้ไปแล้ว ${used} วัน)`;
+  };
+  $('#l_emp').onchange = updateQuota; $('#l_type').onchange = updateQuota; updateQuota();
+}
+function setLeave(id, status) {
+  const l = DB.leaves.find(x=>x.id===id);
+  if (status==='approved') {
+    const used = usedLeave(l.empId, l.type), req = daysBetween(l.from,l.to), quota = LEAVE_QUOTA[l.type];
+    if (used + req > quota && !confirm(`เกินสิทธิการลา (${LEAVE_TYPES[l.type]} เหลือ ${quota-used} วัน แต่ขอ ${req} วัน)\nยืนยันอนุมัติหรือไม่?`)) return;
+  }
+  l.status = status; save(); renderLeave();
+}
+function delLeave(id) { if(confirm('ลบคำขอลานี้?')){ DB.leaves = DB.leaves.filter(x=>x.id!==id); save(); renderLeave(); } }
+
+/* =========================================================
+   OT (โอที)
+   ========================================================= */
+const OT_RATE = 1.5; // เท่าของค่าจ้างรายชั่วโมง
+function hourlyRate(empId) {
+  const e = DB.employees.find(x=>x.id===empId);
+  if (!e) return 0;
+  return (Number(e.salary||0) / 30) / 8; // เงินเดือน/30วัน/8ชม.
+}
+function renderOT() {
+  $('#topAction').innerHTML = `<button class="btn-primary" id="addOt">+ บันทึก OT</button>`;
+  $('#addOt').onclick = () => otForm();
+
+  const month = todayStr().slice(0,7);
+  const monthList = DB.ot.filter(o => o.date.slice(0,7) === month);
+  const totalMin = monthList.reduce((s,o)=>s+o.minutes,0);
+  const totalPay = monthList.reduce((s,o)=>s + otPay(o), 0);
+
+  const rows = [...DB.ot].reverse().map(o => `
+    <tr>
+      <td>${esc(empName(o.empId))}</td>
+      <td>${o.date}</td>
+      <td>${o.from}–${o.to}</td>
+      <td>${fmtHours(o.minutes)}</td>
+      <td>฿${money(otPay(o))}</td>
+      <td>${esc(o.note||'-')}</td>
+      <td><button class="btn-danger btn-sm" onclick="delOt(${o.id})">ลบ</button></td>
+    </tr>`).join('') || `<tr><td colspan="7" class="empty">ยังไม่มีบันทึก OT</td></tr>`;
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">OT เดือนนี้ (รวม)</div><div class="value blue">${fmtHours(totalMin)}</div></div>
+      <div class="stat"><div class="label">ค่า OT เดือนนี้</div><div class="value green">฿${money(totalPay)}</div></div>
+      <div class="stat"><div class="label">อัตรา OT</div><div class="value">×${OT_RATE}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><h2>บันทึกโอทีทั้งหมด</h2>
+        <span class="badge gray">คำนวณจากเงินเดือน ÷ 30 วัน ÷ 8 ชม. × ${OT_RATE}</span></div>
+      <table>
+        <thead><tr><th>พนักงาน</th><th>วันที่</th><th>ช่วงเวลา</th><th>ชั่วโมง</th><th>ค่า OT</th><th>หมายเหตุ</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+function otPay(o) { return Math.round(hourlyRate(o.empId) * (o.minutes/60) * OT_RATE); }
+function otForm() {
+  const opts = DB.employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${esc(e.name)}</option>`).join('');
+  if (!opts) { alert('กรุณาเพิ่มพนักงานก่อน'); return; }
+  openModal('บันทึกโอที (OT)', `
+    <div class="field"><label>พนักงาน *</label><select id="o_emp">${opts}</select></div>
+    <div class="field"><label>วันที่</label><input id="o_date" type="date" value="${todayStr()}"></div>
+    <div class="row2">
+      <div class="field"><label>เวลาเริ่ม</label><input id="o_from" type="time" value="18:00"></div>
+      <div class="field"><label>เวลาสิ้นสุด</label><input id="o_to" type="time" value="20:00"></div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><input id="o_note" placeholder="เช่น ปิดงบสิ้นเดือน"></div>
+    <div id="o_preview" style="font-size:13px;color:var(--muted)"></div>
+  `, () => {
+    const empId = Number($('#o_emp').value);
+    const from = $('#o_from').value, to = $('#o_to').value;
+    const minutes = minutesBetween(from, to);
+    if (minutes <= 0) { alert('เวลาสิ้นสุดต้องหลังเวลาเริ่ม'); return false; }
+    DB.ot.push({ id: nextId('ot'), empId, date: $('#o_date').value, from, to, minutes, note: $('#o_note').value.trim() });
+    save(); renderOT();
+  });
+  const preview = () => {
+    const empId = Number($('#o_emp').value);
+    const minutes = minutesBetween($('#o_from').value, $('#o_to').value);
+    if (minutes > 0) {
+      const pay = Math.round(hourlyRate(empId) * (minutes/60) * OT_RATE);
+      $('#o_preview').innerHTML = `⏱️ ${fmtHours(minutes)} · ค่า OT โดยประมาณ <strong>฿${money(pay)}</strong>`;
+    } else $('#o_preview').textContent = '';
+  };
+  ['o_emp','o_from','o_to'].forEach(id => $('#'+id).oninput = preview);
+  preview();
+}
+function delOt(id) { DB.ot = DB.ot.filter(o=>o.id!==id); save(); renderOT(); }
+
+/* ---------- Start ---------- */
+go('dashboard');
+</script>
+</body>
+</html>
