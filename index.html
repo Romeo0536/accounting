@@ -139,7 +139,7 @@
   .login-brand span { color: var(--primary); }
   .login-sub { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 24px; }
   .login-tabs { display: flex; gap: 8px; background: #f1f5f9; padding: 5px; border-radius: 10px; margin-bottom: 24px; }
-  .login-tab { flex: 1; background: transparent; color: var(--muted); padding: 10px; border-radius: 7px; }
+  .login-tab { flex: 1; background: transparent; color: var(--muted); padding: 10px 6px; border-radius: 7px; font-size: 13px; white-space: nowrap; }
   .login-tab.active { background: #fff; color: var(--primary); box-shadow: var(--shadow); }
   .login-hint { font-size: 12px; color: var(--muted); text-align: center; margin-top: 14px; }
   .login-err { color: var(--red); font-size: 13px; text-align: center; margin-top: 12px; min-height: 18px; }
@@ -164,6 +164,7 @@
     <div class="login-tabs">
       <button class="login-tab active" data-role="manager">👔 ผู้จัดการ</button>
       <button class="login-tab" data-role="employee">👤 พนักงาน</button>
+      <button class="login-tab" data-role="intern">🎓 ฝึกงาน</button>
     </div>
     <div id="loginBody"></div>
     <div class="login-err" id="loginErr"></div>
@@ -224,15 +225,16 @@ function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); scheduleClou
 function seed() {
   const d = {
     employees: [
-      { id: 1, code: 'EMP001', name: 'สมชาย ใจดี', dept: 'บัญชี', position: 'สมุห์บัญชี', salary: 35000, phone: '081-234-5678', startDate: '2022-03-01', status: 'active', pin: '1111' },
-      { id: 2, code: 'EMP002', name: 'สมหญิง รักงาน', dept: 'บุคคล', position: 'HR Manager', salary: 42000, phone: '089-111-2222', startDate: '2021-06-15', status: 'active', pin: '2222' },
-      { id: 3, code: 'EMP003', name: 'มานะ ขยันมาก', dept: 'ไอที', position: 'Developer', salary: 38000, phone: '086-333-4444', startDate: '2023-01-10', status: 'active', pin: '3333' },
+      { id: 1, code: 'EMP001', name: 'สมชาย ใจดี', dept: 'บัญชี', position: 'สมุห์บัญชี', type: 'staff', salary: 35000, phone: '081-234-5678', startDate: '2022-03-01', status: 'active', pin: '1111' },
+      { id: 2, code: 'EMP002', name: 'สมหญิง รักงาน', dept: 'บุคคล', position: 'HR Manager', type: 'staff', salary: 42000, phone: '089-111-2222', startDate: '2021-06-15', status: 'active', pin: '2222' },
+      { id: 3, code: 'EMP003', name: 'มานะ ขยันมาก', dept: 'ไอที', position: 'Developer', type: 'staff', salary: 38000, phone: '086-333-4444', startDate: '2023-01-10', status: 'active', pin: '3333' },
+      { id: 4, code: 'INT001', name: 'ปิติ เรียนรู้', dept: 'ไอที', position: 'นักศึกษาฝึกงาน', type: 'intern', salary: 0, allowance: 350, internStart: '2026-05-01', internEnd: '2026-08-31', mentorId: 3, phone: '090-555-6666', startDate: '2026-05-01', status: 'active', pin: '4444', evaluation: null },
     ],
     attendance: [],
     leaves: [],
     ot: [],
     settings: { adminPin: '9999' },
-    seq: { employee: 4, attendance: 1, leave: 1, ot: 1 },
+    seq: { employee: 5, attendance: 1, leave: 1, ot: 1 },
   };
   return d;
 }
@@ -240,7 +242,14 @@ function seed() {
 function migrate() {
   if (!DB.settings) DB.settings = { adminPin: '9999' };
   if (DB.settings.adminPin == null) DB.settings.adminPin = '9999';
-  (DB.employees||[]).forEach(e => { if (e.pin == null) e.pin = '0000'; });
+  (DB.employees||[]).forEach(e => {
+    if (e.pin == null) e.pin = '0000';
+    if (e.type == null) e.type = 'staff';
+    if (e.type === 'intern') {
+      if (e.allowance == null) e.allowance = 0;
+      if (e.evaluation === undefined) e.evaluation = null;
+    }
+  });
 }
 let DB = load();
 migrate();
@@ -254,6 +263,9 @@ const money = n => Number(n||0).toLocaleString('th-TH', { minimumFractionDigits:
 const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 const nowTime = () => { const d = new Date(); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
 const empName = id => (DB.employees.find(e=>e.id===id)||{}).name || '-';
+const isIntern = e => !!e && e.type === 'intern';
+const mentorName = id => { const m = DB.employees.find(e=>e.id===id); return m ? m.name : '-'; };
+const daysLeft = end => { if (!end) return null; return Math.ceil((new Date(end) - new Date(todayStr())) / 86400000); };
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const thisYear = () => new Date().getFullYear();
 
@@ -315,17 +327,18 @@ function renderLoginBody() {
     $('#lg_pin').onkeydown = e => { if (e.key === 'Enter') doManagerLogin(); };
     setTimeout(() => $('#lg_pin') && $('#lg_pin').focus(), 50);
   } else {
-    const opts = DB.employees.filter(e => e.status === 'active')
-      .map(e => `<option value="${e.id}">${esc(e.name)} (${esc(e.code)})</option>`).join('');
+    const wantType = loginRole === 'intern' ? 'intern' : 'staff';
+    const people = DB.employees.filter(e => e.status === 'active' && (e.type || 'staff') === wantType);
+    const opts = people.map(e => `<option value="${e.id}">${esc(e.name)} (${esc(e.code)})</option>`).join('');
     body.innerHTML = `
-      <div class="field"><label>เลือกชื่อพนักงาน</label>
-        <select id="lg_emp">${opts || '<option disabled>ยังไม่มีพนักงาน</option>'}</select></div>
+      <div class="field"><label>เลือกชื่อ${loginRole === 'intern' ? 'เด็กฝึกงาน' : 'พนักงาน'}</label>
+        <select id="lg_emp">${opts || '<option disabled>ยังไม่มีรายชื่อ</option>'}</select></div>
       <div class="field"><label>รหัส PIN ของคุณ</label>
         <input id="lg_pin" type="password" placeholder="••••" autocomplete="off"></div>
       <button class="btn-primary" id="lg_go" style="width:100%">เข้าสู่ระบบ</button>
-      <div class="login-hint">ไม่ทราบรหัส? สอบถามผู้จัดการ (ตั้งได้ในข้อมูลพนักงาน)</div>`;
-    $('#lg_go').onclick = doEmployeeLogin;
-    $('#lg_pin').onkeydown = e => { if (e.key === 'Enter') doEmployeeLogin(); };
+      <div class="login-hint">ไม่ทราบรหัส? สอบถามผู้จัดการ</div>`;
+    $('#lg_go').onclick = doPersonLogin;
+    $('#lg_pin').onkeydown = e => { if (e.key === 'Enter') doPersonLogin(); };
   }
 }
 function doManagerLogin() {
@@ -333,12 +346,13 @@ function doManagerLogin() {
   if (pin === String(DB.settings.adminPin)) { setSession({ role: 'manager' }); startApp(); }
   else $('#loginErr').textContent = 'รหัสผ่านไม่ถูกต้อง';
 }
-function doEmployeeLogin() {
+function doPersonLogin() {
   const empId = Number($('#lg_emp').value);
   const emp = DB.employees.find(e => e.id === empId);
-  if (!emp) { $('#loginErr').textContent = 'กรุณาเลือกพนักงาน'; return; }
-  if ($('#lg_pin').value === String(emp.pin)) { setSession({ role: 'employee', empId }); startApp(); }
-  else $('#loginErr').textContent = 'รหัส PIN ไม่ถูกต้อง';
+  if (!emp) { $('#loginErr').textContent = 'กรุณาเลือกรายชื่อ'; return; }
+  if ($('#lg_pin').value === String(emp.pin)) {
+    setSession({ role: emp.type === 'intern' ? 'intern' : 'employee', empId }); startApp();
+  } else $('#loginErr').textContent = 'รหัส PIN ไม่ถูกต้อง';
 }
 function logout() { setSession(null); $('#loginErr').textContent = ''; showLogin(); }
 
@@ -354,7 +368,9 @@ function renderUserChip() {
     $('#userChip').innerHTML = `<span class="badge blue">👔 ผู้จัดการ</span>
       <button class="btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>`;
   } else {
-    $('#userChip').innerHTML = `<span class="badge green">👤 ${esc(empName(session.empId))}</span>
+    const icon = session.role === 'intern' ? '🎓' : '👤';
+    const color = session.role === 'intern' ? 'amber' : 'green';
+    $('#userChip').innerHTML = `<span class="badge ${color}">${icon} ${esc(empName(session.empId))}</span>
       <button class="btn-ghost btn-sm" onclick="logout()">ออกจากระบบ</button>`;
   }
 }
@@ -363,7 +379,7 @@ function renderUserChip() {
 const NAV = {
   manager: [
     { page: 'dashboard', icon: '📊', label: 'แดชบอร์ด' },
-    { page: 'employees', icon: '👥', label: 'พนักงาน' },
+    { page: 'employees', icon: '👥', label: 'บุคลากร' },
     { page: 'attendance', icon: '⏰', label: 'ลงเวลา' },
     { page: 'leave', icon: '🌴', label: 'การลา' },
     { page: 'ot', icon: '💪', label: 'โอที (OT)' },
@@ -373,6 +389,11 @@ const NAV = {
     { page: 'myattendance', icon: '⏰', label: 'ลงเวลาของฉัน' },
     { page: 'myleave', icon: '🌴', label: 'ลางาน' },
     { page: 'myot', icon: '💪', label: 'โอทีของฉัน' },
+  ],
+  intern: [
+    { page: 'myprofile', icon: '🎓', label: 'ข้อมูลของฉัน' },
+    { page: 'myattendance', icon: '⏰', label: 'ลงเวลาของฉัน' },
+    { page: 'myleave', icon: '🌴', label: 'ลางาน' },
   ],
 };
 function navForRole() { return NAV[session.role]; }
@@ -384,21 +405,21 @@ function buildNav() {
 }
 
 const PAGES = {
-  dashboard:    { title: 'แดชบอร์ด',        render: renderDashboard,    role: 'manager' },
-  employees:    { title: 'พนักงาน',          render: renderEmployees,    role: 'manager' },
-  attendance:   { title: 'ลงเวลาเข้า-ออก',   render: renderAttendance,   role: 'manager' },
-  leave:        { title: 'การลางาน',         render: renderLeave,        role: 'manager' },
-  ot:           { title: 'โอที (OT)',        render: renderOT,           role: 'manager' },
-  myprofile:    { title: 'ข้อมูลของฉัน',      render: renderMyProfile,    role: 'employee' },
-  myattendance: { title: 'ลงเวลาของฉัน',      render: renderMyAttendance, role: 'employee' },
-  myleave:      { title: 'การลาของฉัน',       render: renderMyLeave,      role: 'employee' },
-  myot:         { title: 'โอทีของฉัน',        render: renderMyOT,         role: 'employee' },
+  dashboard:    { title: 'แดชบอร์ด',        render: renderDashboard,    roles: ['manager'] },
+  employees:    { title: 'บุคลากร',          render: renderEmployees,    roles: ['manager'] },
+  attendance:   { title: 'ลงเวลาเข้า-ออก',   render: renderAttendance,   roles: ['manager'] },
+  leave:        { title: 'การลางาน',         render: renderLeave,        roles: ['manager'] },
+  ot:           { title: 'โอที (OT)',        render: renderOT,           roles: ['manager'] },
+  myprofile:    { title: 'ข้อมูลของฉัน',      render: renderMyProfile,    roles: ['employee','intern'] },
+  myattendance: { title: 'ลงเวลาของฉัน',      render: renderMyAttendance, roles: ['employee','intern'] },
+  myleave:      { title: 'การลาของฉัน',       render: renderMyLeave,      roles: ['employee','intern'] },
+  myot:         { title: 'โอทีของฉัน',        render: renderMyOT,         roles: ['employee'] },
 };
 let currentPage = null;
 
 function go(page) {
   const def = PAGES[page];
-  if (!def || def.role !== session.role) page = navForRole()[0].page; // กันเข้าหน้าที่ไม่มีสิทธิ์
+  if (!def || !def.roles.includes(session.role)) page = navForRole()[0].page; // กันเข้าหน้าที่ไม่มีสิทธิ์
   currentPage = page;
   $$all('#nav a').forEach(a => a.classList.toggle('active', a.dataset.page === page));
   $('#pageTitle').textContent = PAGES[page].title;
@@ -410,8 +431,10 @@ function go(page) {
    DASHBOARD
    ========================================================= */
 function renderDashboard() {
-  const emps = DB.employees.filter(e => e.status === 'active');
-  const totalSalary = emps.reduce((s,e)=>s+Number(e.salary||0),0);
+  const active = DB.employees.filter(e => e.status === 'active');
+  const staff = active.filter(e => (e.type||'staff') === 'staff');
+  const interns = active.filter(e => e.type === 'intern');
+  const totalSalary = staff.reduce((s,e)=>s+Number(e.salary||0),0);
   const today = todayStr();
   const presentToday = DB.attendance.filter(a => a.date === today).length;
   const pendingLeaves = DB.leaves.filter(l => l.status === 'pending').length;
@@ -420,7 +443,7 @@ function renderDashboard() {
 
   // by department
   const byDept = {};
-  emps.forEach(e => byDept[e.dept] = (byDept[e.dept]||0)+1);
+  active.forEach(e => byDept[e.dept] = (byDept[e.dept]||0)+1);
   const deptRows = Object.entries(byDept).sort((a,b)=>b[1]-a[1])
     .map(([d,c]) => `<tr><td>${esc(d)}</td><td>${c} คน</td></tr>`).join('') ||
     `<tr><td colspan="2" class="empty">ไม่มีข้อมูล</td></tr>`;
@@ -435,7 +458,8 @@ function renderDashboard() {
 
   $('#content').innerHTML = `
     <div class="stat-grid">
-      <div class="stat"><div class="label">พนักงานทั้งหมด</div><div class="value blue">${emps.length}</div></div>
+      <div class="stat"><div class="label">พนักงานประจำ</div><div class="value blue">${staff.length}</div></div>
+      <div class="stat"><div class="label">เด็กฝึกงาน</div><div class="value amber">${interns.length}</div></div>
       <div class="stat"><div class="label">ลงเวลาวันนี้</div><div class="value green">${presentToday}</div></div>
       <div class="stat"><div class="label">คำขอลารออนุมัติ</div><div class="value amber">${pendingLeaves}</div></div>
       <div class="stat"><div class="label">OT เดือนนี้</div><div class="value">${fmtHours(otThisMonth)}</div></div>
@@ -457,39 +481,53 @@ function renderDashboard() {
 /* =========================================================
    EMPLOYEES
    ========================================================= */
-let empSearch = '';
+let empSearch = '', empFilter = 'all';
+function setEmpFilter(k) { empFilter = k; renderEmployees(); }
 function renderEmployees() {
   $('#topAction').innerHTML = `<button class="btn-ghost" id="adminPin">🔑 รหัสผู้จัดการ</button>
-    <button class="btn-primary" id="addEmp">+ เพิ่มพนักงาน</button>`;
+    <button class="btn-primary" id="addEmp">+ เพิ่มบุคลากร</button>`;
   $('#addEmp').onclick = () => empForm();
   $('#adminPin').onclick = () => adminPinForm();
 
-  const list = DB.employees.filter(e =>
-    !empSearch || (e.name+e.code+e.dept+e.position).toLowerCase().includes(empSearch.toLowerCase()));
+  const list = DB.employees.filter(e => {
+    const t = e.type || 'staff';
+    if (empFilter === 'staff' && t !== 'staff') return false;
+    if (empFilter === 'intern' && t !== 'intern') return false;
+    return !empSearch || (e.name+e.code+e.dept+e.position).toLowerCase().includes(empSearch.toLowerCase());
+  });
 
-  const rows = list.map(e => `
-    <tr>
+  const rows = list.map(e => {
+    const intern = isIntern(e);
+    const pay = intern ? `฿${money(e.allowance)}/วัน` : `฿${money(e.salary)}`;
+    const typeBadge = intern ? '<span class="badge amber">🎓 ฝึกงาน</span>' : '<span class="badge blue">พนักงาน</span>';
+    return `<tr>
       <td><strong>${esc(e.code)}</strong></td>
       <td>${esc(e.name)}</td>
+      <td>${typeBadge}</td>
       <td>${esc(e.dept)}</td>
       <td>${esc(e.position)}</td>
-      <td>฿${money(e.salary)}</td>
-      <td>${esc(e.phone||'-')}</td>
-      <td>${e.status==='active' ? '<span class="badge green">ทำงาน</span>' : '<span class="badge gray">ลาออก</span>'}</td>
+      <td>${pay}</td>
+      <td>${e.status==='active' ? '<span class="badge green">ทำงาน</span>' : '<span class="badge gray">พ้นสภาพ</span>'}</td>
       <td style="white-space:nowrap">
+        ${intern ? `<button class="btn-ghost btn-sm" onclick="evalForm(${e.id})">📝 ประเมิน</button>` : ''}
         <button class="link-btn btn-sm" onclick="empForm(${e.id})">แก้ไข</button>
         <button class="btn-danger btn-sm" onclick="delEmp(${e.id})">ลบ</button>
       </td>
-    </tr>`).join('') || `<tr><td colspan="8" class="empty">ไม่พบข้อมูลพนักงาน</td></tr>`;
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" class="empty">ไม่พบข้อมูล</td></tr>`;
 
+  const tab = (k,label) => `<button class="btn-sm ${empFilter===k?'btn-primary':'btn-ghost'}" onclick="setEmpFilter('${k}')">${label}</button>`;
   $('#content').innerHTML = `
     <div class="card">
       <div class="card-head">
-        <div class="toolbar"><input class="search" id="empSearch" placeholder="🔍 ค้นหาชื่อ/รหัส/แผนก" value="${esc(empSearch)}"></div>
+        <div class="toolbar">
+          ${tab('all','ทั้งหมด')} ${tab('staff','พนักงาน')} ${tab('intern','ฝึกงาน')}
+          <input class="search" id="empSearch" placeholder="🔍 ค้นหา" value="${esc(empSearch)}">
+        </div>
         <span class="badge gray">${list.length} คน</span>
       </div>
       <table>
-        <thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>แผนก</th><th>ตำแหน่ง</th><th>เงินเดือน</th><th>โทร</th><th>สถานะ</th><th></th></tr></thead>
+        <thead><tr><th>รหัส</th><th>ชื่อ-สกุล</th><th>ประเภท</th><th>แผนก</th><th>ตำแหน่ง</th><th>ค่าตอบแทน</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -498,10 +536,19 @@ function renderEmployees() {
 
 function empForm(id) {
   const e = DB.employees.find(x=>x.id===id) || {};
+  const type = e.type || 'staff';
   const deptOpts = DEPARTMENTS.map(d=>`<option ${e.dept===d?'selected':''}>${d}</option>`).join('');
-  openModal(id?'แก้ไขข้อมูลพนักงาน':'เพิ่มพนักงานใหม่', `
+  const mentorOpts = DB.employees.filter(x=>x.type!=='intern' && x.status==='active')
+    .map(x=>`<option value="${x.id}" ${e.mentorId===x.id?'selected':''}>${esc(x.name)}</option>`).join('');
+  const defCode = e.code || ((type==='intern'?'INT':'EMP') + String(DB.seq.employee).padStart(3,'0'));
+  openModal(id?'แก้ไขข้อมูลบุคลากร':'เพิ่มบุคลากรใหม่', `
+    <div class="field"><label>ประเภทบุคลากร</label>
+      <select id="f_type">
+        <option value="staff" ${type==='staff'?'selected':''}>พนักงานประจำ</option>
+        <option value="intern" ${type==='intern'?'selected':''}>เด็กฝึกงาน</option>
+      </select></div>
     <div class="row2">
-      <div class="field"><label>รหัสพนักงาน</label><input id="f_code" value="${esc(e.code||('EMP'+String(DB.seq.employee).padStart(3,'0')))}"></div>
+      <div class="field"><label>รหัส</label><input id="f_code" value="${esc(defCode)}"></div>
       <div class="field"><label>ชื่อ-สกุล *</label><input id="f_name" value="${esc(e.name||'')}"></div>
     </div>
     <div class="row2">
@@ -509,32 +556,78 @@ function empForm(id) {
       <div class="field"><label>ตำแหน่ง</label><input id="f_position" value="${esc(e.position||'')}"></div>
     </div>
     <div class="row2">
-      <div class="field"><label>เงินเดือน (บาท)</label><input id="f_salary" type="number" value="${e.salary||''}"></div>
       <div class="field"><label>เบอร์โทร</label><input id="f_phone" value="${esc(e.phone||'')}"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>วันเริ่มงาน</label><input id="f_start" type="date" value="${e.startDate||todayStr()}"></div>
       <div class="field"><label>สถานะ</label><select id="f_status">
         <option value="active" ${e.status!=='resigned'?'selected':''}>ทำงาน</option>
-        <option value="resigned" ${e.status==='resigned'?'selected':''}>ลาออก</option>
+        <option value="resigned" ${e.status==='resigned'?'selected':''}>พ้นสภาพ</option>
       </select></div>
     </div>
-    <div class="field"><label>รหัส PIN สำหรับเข้าระบบพนักงาน</label>
+    <div id="staffFields" class="row2">
+      <div class="field"><label>เงินเดือน (บาท)</label><input id="f_salary" type="number" value="${e.salary||''}"></div>
+      <div class="field"><label>วันเริ่มงาน</label><input id="f_start" type="date" value="${e.startDate||todayStr()}"></div>
+    </div>
+    <div id="internFields">
+      <div class="row2">
+        <div class="field"><label>เบี้ยเลี้ยง (บาท/วัน)</label><input id="f_allowance" type="number" value="${e.allowance||''}"></div>
+        <div class="field"><label>พี่เลี้ยง</label><select id="f_mentor"><option value="">— ไม่ระบุ —</option>${mentorOpts}</select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>เริ่มฝึกงาน</label><input id="f_istart" type="date" value="${e.internStart||todayStr()}"></div>
+        <div class="field"><label>สิ้นสุดฝึกงาน</label><input id="f_iend" type="date" value="${e.internEnd||''}"></div>
+      </div>
+    </div>
+    <div class="field"><label>รหัส PIN สำหรับเข้าระบบ</label>
       <input id="f_pin" value="${esc(e.pin||'0000')}" placeholder="เช่น 1234"></div>
   `, () => {
     const name = $('#f_name').value.trim();
     if (!name) { alert('กรุณากรอกชื่อ-สกุล'); return false; }
+    const t = $('#f_type').value;
     const data = {
-      code: $('#f_code').value.trim(), name,
+      code: $('#f_code').value.trim(), name, type: t,
       dept: $('#f_dept').value, position: $('#f_position').value.trim(),
-      salary: Number($('#f_salary').value)||0, phone: $('#f_phone').value.trim(),
-      startDate: $('#f_start').value, status: $('#f_status').value,
+      phone: $('#f_phone').value.trim(), status: $('#f_status').value,
       pin: $('#f_pin').value.trim() || '0000',
     };
+    if (t === 'intern') {
+      data.allowance = Number($('#f_allowance').value)||0;
+      data.mentorId = $('#f_mentor').value ? Number($('#f_mentor').value) : null;
+      data.internStart = $('#f_istart').value;
+      data.internEnd = $('#f_iend').value;
+      data.startDate = $('#f_istart').value;
+      data.salary = 0;
+    } else {
+      data.salary = Number($('#f_salary').value)||0;
+      data.startDate = $('#f_start').value;
+    }
     if (id) Object.assign(e, data);
-    else DB.employees.push({ id: nextId('employee'), ...data });
+    else DB.employees.push({ id: nextId('employee'), evaluation: t==='intern'?null:undefined, ...data });
     save(); renderEmployees();
   });
+  const toggle = () => {
+    const t = $('#f_type').value;
+    $('#staffFields').style.display = t==='staff' ? '' : 'none';
+    $('#internFields').style.display = t==='intern' ? '' : 'none';
+    // อัปเดตรหัสอัตโนมัติเมื่อสลับประเภท (เฉพาะตอนเพิ่มใหม่และยังไม่ได้พิมพ์รหัสเอง)
+    if (!id) {
+      const cur = $('#f_code').value.trim();
+      if (cur === '' || /^(EMP|INT)\d{3}$/.test(cur))
+        $('#f_code').value = (t==='intern'?'INT':'EMP') + String(DB.seq.employee).padStart(3,'0');
+    }
+  };
+  $('#f_type').onchange = toggle; toggle();
+}
+function evalForm(id) {
+  const e = DB.employees.find(x=>x.id===id); if (!e) return;
+  const ev = e.evaluation || {};
+  const levels = ['', 'ต้องปรับปรุง', 'พอใช้', 'ดี', 'ดีมาก', 'ดีเยี่ยม'];
+  openModal('ประเมินผลฝึกงาน — ' + esc(e.name), `
+    <div class="field"><label>คะแนน</label>
+      <select id="ev_score">${[5,4,3,2,1].map(n=>`<option value="${n}" ${ev.score===n?'selected':''}>${n} — ${levels[n]}</option>`).join('')}</select></div>
+    <div class="field"><label>ความเห็น / ข้อเสนอแนะ</label><textarea id="ev_comment" rows="3">${esc(ev.comment||'')}</textarea></div>
+  `, () => {
+    e.evaluation = { score: Number($('#ev_score').value), comment: $('#ev_comment').value.trim(), date: todayStr() };
+    save(); renderEmployees();
+  }, 'บันทึกผลประเมิน');
 }
 function delEmp(id) {
   const e = DB.employees.find(x=>x.id===id);
@@ -807,27 +900,53 @@ function renderMyProfile() {
   const month = todayStr().slice(0,7);
   const otMin = DB.ot.filter(o=>o.empId===e.id && o.date.slice(0,7)===month).reduce((s,o)=>s+o.minutes,0);
   const attCount = DB.attendance.filter(a=>a.empId===e.id && a.date.slice(0,7)===month).length;
-  const leaveRows = Object.entries(LEAVE_TYPES).map(([k,v])=>{
-    const used = usedLeave(e.id,k), q = LEAVE_QUOTA[k];
-    return `<tr><td>${v}</td><td>${used} วัน</td><td><strong style="color:${q-used>0?'var(--green)':'var(--red)'}">${q-used}/${q} วัน</strong></td></tr>`;
-  }).join('');
-  $('#content').innerHTML = `
-    <div class="stat-grid">
+  const intern = isIntern(e);
+  const levels = ['', 'ต้องปรับปรุง', 'พอใช้', 'ดี', 'ดีมาก', 'ดีเยี่ยม'];
+
+  const statCards = intern ? `
+      <div class="stat"><div class="label">ลงเวลาเดือนนี้</div><div class="value blue">${attCount} วัน</div></div>
+      <div class="stat"><div class="label">เบี้ยเลี้ยง</div><div class="value">฿${money(e.allowance)}/วัน</div></div>
+      <div class="stat"><div class="label">เหลือเวลาฝึกงาน</div><div class="value amber">${daysLeft(e.internEnd)!=null?daysLeft(e.internEnd)+' วัน':'-'}</div></div>` : `
       <div class="stat"><div class="label">ลงเวลาเดือนนี้</div><div class="value blue">${attCount} วัน</div></div>
       <div class="stat"><div class="label">OT เดือนนี้</div><div class="value">${fmtHours(otMin)}</div></div>
-      <div class="stat"><div class="label">เงินเดือน</div><div class="value">฿${money(e.salary)}</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>ข้อมูลส่วนตัว</h2></div>
-      <div class="card-body"><table>
+      <div class="stat"><div class="label">เงินเดือน</div><div class="value">฿${money(e.salary)}</div></div>`;
+
+  const infoRows = intern ? `
+        <tr><th style="width:160px">รหัส</th><td>${esc(e.code)}</td></tr>
+        <tr><th>ชื่อ-สกุล</th><td>${esc(e.name)}</td></tr>
+        <tr><th>แผนก</th><td>${esc(e.dept)}</td></tr>
+        <tr><th>ตำแหน่ง</th><td>${esc(e.position)}</td></tr>
+        <tr><th>พี่เลี้ยง</th><td>${esc(mentorName(e.mentorId))}</td></tr>
+        <tr><th>ช่วงฝึกงาน</th><td>${esc(e.internStart||'-')} ถึง ${esc(e.internEnd||'-')}</td></tr>
+        <tr><th>เบอร์โทร</th><td>${esc(e.phone||'-')}</td></tr>` : `
         <tr><th style="width:160px">รหัสพนักงาน</th><td>${esc(e.code)}</td></tr>
         <tr><th>ชื่อ-สกุล</th><td>${esc(e.name)}</td></tr>
         <tr><th>แผนก</th><td>${esc(e.dept)}</td></tr>
         <tr><th>ตำแหน่ง</th><td>${esc(e.position)}</td></tr>
         <tr><th>เบอร์โทร</th><td>${esc(e.phone||'-')}</td></tr>
-        <tr><th>วันเริ่มงาน</th><td>${esc(e.startDate||'-')}</td></tr>
-      </table></div>
+        <tr><th>วันเริ่มงาน</th><td>${esc(e.startDate||'-')}</td></tr>`;
+
+  const evalCard = (intern && e.evaluation) ? `
+    <div class="card">
+      <div class="card-head"><h2>ผลการประเมินฝึกงาน</h2></div>
+      <div class="card-body">
+        <p>คะแนน: <strong style="color:var(--primary)">${e.evaluation.score}/5</strong> — ${levels[e.evaluation.score]||''}</p>
+        ${e.evaluation.comment ? `<p style="margin-top:8px;color:var(--muted)">"${esc(e.evaluation.comment)}"</p>` : ''}
+      </div>
+    </div>` : '';
+
+  const leaveRows = Object.entries(LEAVE_TYPES).map(([k,v])=>{
+    const used = usedLeave(e.id,k), q = LEAVE_QUOTA[k];
+    return `<tr><td>${v}</td><td>${used} วัน</td><td><strong style="color:${q-used>0?'var(--green)':'var(--red)'}">${q-used}/${q} วัน</strong></td></tr>`;
+  }).join('');
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">${statCards}</div>
+    <div class="card">
+      <div class="card-head"><h2>ข้อมูลส่วนตัว</h2></div>
+      <div class="card-body"><table>${infoRows}</table></div>
     </div>
+    ${evalCard}
     <div class="card">
       <div class="card-head"><h2>สิทธิการลาคงเหลือ (ปี ${thisYear()+543})</h2></div>
       <table><thead><tr><th>ประเภท</th><th>ใช้ไปแล้ว</th><th>คงเหลือ</th></tr></thead><tbody>${leaveRows}</tbody></table>
