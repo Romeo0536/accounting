@@ -135,6 +135,7 @@
     .row2 { grid-template-columns: 1fr; }
   }
 </style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div class="app">
@@ -147,7 +148,7 @@
       <a data-page="leave"><span class="icon">🌴</span><span>การลา</span></a>
       <a data-page="ot"><span class="icon">💪</span><span>โอที (OT)</span></a>
     </nav>
-    <div style="padding:14px 20px; font-size:12px; color:#475569;">ข้อมูลถูกเก็บในเบราว์เซอร์นี้</div>
+    <div id="cloudBox" style="padding:14px 20px; font-size:13px; color:#cbd5e1; line-height:1.7;">กำลังโหลด...</div>
   </aside>
 
   <div class="main">
@@ -169,6 +170,17 @@
 
 const DB_KEY = 'hr_app_data_v1';
 
+/* ========== Google Drive Cloud config ==========
+   วิธีตั้งค่า: ดูไฟล์ SETUP.md
+   ใส่ OAuth Client ID ของคุณระหว่างเครื่องหมายคำพูดด้านล่าง
+   (ปล่อยว่าง = ใช้งานแบบเก็บในเบราว์เซอร์เท่านั้น) */
+const GOOGLE_CLIENT_ID = ''; // ← เช่น '1234567890-abcxyz.apps.googleusercontent.com'
+const DRIVE_FILE_NAME = 'hr_data.json';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+const BOUNDARY = 'hrapp_boundary_2f8a1';
+let cloud = { token: null, fileId: null, tokenClient: null };
+let pushTimer = null;
+
 const DEPARTMENTS = ['ผู้บริหาร', 'บัญชี', 'การเงิน', 'บุคคล', 'ขาย', 'การตลาด', 'ไอที', 'ปฏิบัติการ'];
 const LEAVE_TYPES = { sick: 'ลาป่วย', personal: 'ลากิจ', vacation: 'ลาพักร้อน' };
 const LEAVE_QUOTA = { sick: 30, personal: 3, vacation: 6 }; // วันต่อปี (ตามกฎหมายแรงงานไทยโดยประมาณ)
@@ -179,7 +191,7 @@ function load() {
   if (raw) { try { return JSON.parse(raw); } catch(e) {} }
   return seed();
 }
-function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+function save() { localStorage.setItem(DB_KEY, JSON.stringify(DB)); scheduleCloudPush(); }
 function seed() {
   const d = {
     employees: [
@@ -621,8 +633,109 @@ function otForm() {
 }
 function delOt(id) { DB.ot = DB.ot.filter(o=>o.id!==id); save(); renderOT(); }
 
+/* =========================================================
+   CLOUD SYNC — Google Drive
+   เก็บข้อมูลเป็นไฟล์ hr_data.json ใน Google Drive ของผู้ใช้
+   ========================================================= */
+function setCloudStatus(html) { const el = document.getElementById('cloudBox'); if (el) el.innerHTML = html; }
+
+function initCloud() {
+  if (!GOOGLE_CLIENT_ID) {
+    setCloudStatus('💾 <strong>โหมดออฟไลน์</strong><br><span style="font-size:11px;color:#94a3b8">เก็บในเบราว์เซอร์นี้ (ยังไม่ตั้งค่า Google Drive)</span>');
+    return;
+  }
+  if (!(window.google && google.accounts && google.accounts.oauth2)) { setTimeout(initCloud, 300); return; }
+  cloud.tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: DRIVE_SCOPE,
+    callback: resp => {
+      if (resp.error || !resp.access_token) { setCloudStatus('❌ ล็อกอินไม่สำเร็จ · <a class="link-btn btn-sm" style="padding:0" onclick="renderCloudSignedOut()">ลองใหม่</a>'); return; }
+      cloud.token = resp.access_token; onSignedIn();
+    },
+  });
+  renderCloudSignedOut();
+}
+
+function renderCloudSignedOut() {
+  setCloudStatus('<button class="btn-green btn-sm" id="cloudSignIn" style="width:100%">☁️ ล็อกอิน Google Drive</button>');
+  const b = document.getElementById('cloudSignIn');
+  if (b) b.onclick = () => cloud.tokenClient.requestAccessToken({ prompt: cloud.token ? '' : 'consent' });
+}
+
+function renderCloudSignedIn() {
+  setCloudStatus('✅ <strong>ซิงค์กับ Drive</strong><br><span id="syncState" style="font-size:11px;color:#94a3b8">บันทึกล่าสุดแล้ว</span> · <a class="link-btn btn-sm" style="padding:0" onclick="cloudSignOut()">ออก</a>');
+}
+
+async function onSignedIn() {
+  setCloudStatus('☁️ กำลังซิงค์ข้อมูล...');
+  try {
+    const id = await driveFind();
+    if (id) {
+      cloud.fileId = id;
+      const remote = await driveDownload(id);
+      if (remote && remote.employees) { DB = remote; localStorage.setItem(DB_KEY, JSON.stringify(DB)); go(currentPage); }
+    } else {
+      cloud.fileId = await driveCreate(DB); // อัปโหลดข้อมูลปัจจุบันขึ้นไปเป็นไฟล์ใหม่
+    }
+    renderCloudSignedIn();
+  } catch (e) {
+    if (String(e.message).includes('token')) return; // กำลังขอ token ใหม่
+    setCloudStatus('⚠️ ซิงค์ล้มเหลว · <a class="link-btn btn-sm" style="padding:0" onclick="onSignedIn()">ลองใหม่</a>');
+  }
+}
+
+function cloudSignOut() {
+  if (cloud.token && google.accounts.oauth2) google.accounts.oauth2.revoke(cloud.token, ()=>{});
+  cloud.token = null; cloud.fileId = null; renderCloudSignedOut();
+}
+
+function scheduleCloudPush() {
+  if (!cloud.token || !cloud.fileId) return;
+  const s = document.getElementById('syncState'); if (s) s.textContent = 'กำลังบันทึก...';
+  clearTimeout(pushTimer); pushTimer = setTimeout(cloudPush, 800);
+}
+async function cloudPush() {
+  if (!cloud.token || !cloud.fileId) return;
+  const s = () => document.getElementById('syncState');
+  try { await driveUpdate(cloud.fileId, DB); if (s()) s().textContent = 'บันทึกขึ้นคลาวด์แล้ว ✓'; }
+  catch (e) { if (s()) s().textContent = 'บันทึกไม่สำเร็จ ✗'; }
+}
+
+/* ---- Drive REST helpers ---- */
+async function driveFetch(url, opts={}) {
+  opts.headers = Object.assign({ Authorization: 'Bearer ' + cloud.token }, opts.headers||{});
+  const r = await fetch(url, opts);
+  if (r.status === 401) { cloud.token = null; cloud.tokenClient.requestAccessToken({ prompt: '' }); throw new Error('token expired'); }
+  if (!r.ok) throw new Error('drive http ' + r.status);
+  return r;
+}
+async function driveFind() {
+  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name)`);
+  const j = await r.json();
+  return j.files && j.files.length ? j.files[0].id : null;
+}
+async function driveDownload(id) {
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media`);
+  return await r.json();
+}
+async function driveCreate(data) {
+  const meta = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
+  const body = `--${BOUNDARY}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${BOUNDARY}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${BOUNDARY}--`;
+  const r = await driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST', headers: { 'Content-Type': 'multipart/related; boundary=' + BOUNDARY }, body,
+  });
+  const j = await r.json();
+  return j.id;
+}
+async function driveUpdate(id, data) {
+  await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  });
+}
+
 /* ---------- Start ---------- */
 go('dashboard');
+initCloud();
 </script>
 </body>
 </html>
