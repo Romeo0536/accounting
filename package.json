@@ -1,0 +1,13 @@
+{
+  "name": "buncheepro-contact",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ระบบติดต่อ BuncheePro — หน้า contact + backend รับ/เก็บ/แจ้งเตือนข้อความ + หน้าแอดมิน",
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node test/contact.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
