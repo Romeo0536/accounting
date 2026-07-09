@@ -10,6 +10,10 @@ node_modules/
 dist/
 .env
 .env.local
+.vercel
+
+# ข้อความติดต่อที่บันทึกในเครื่อง (local file store)
+data/messages.json
 
 # IDE
 .vscode/
