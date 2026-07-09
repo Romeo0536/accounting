@@ -7,6 +7,9 @@
     "dev": "vercel dev",
     "test": "node test/contact.test.js"
   },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0"
+  },
   "engines": {
     "node": ">=18"
   }

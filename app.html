@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บัญชีโปร BuncheePro — ระบบบัญชีและภาษีอัตโนมัติ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#16a34a;--brand-dark:#15803d;--brand-light:#dcfce7;--ink:#0f172a;--text:#1e293b;--muted:#64748b;--bg:#f1f5f9;--card:#fff;--border:#e2e8f0;--amber:#d97706;--red:#dc2626;--blue:#2563eb;--shadow:0 1px 3px rgba(15,23,42,.06),0 4px 16px rgba(15,23,42,.05)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Sarabun",-apple-system,"Segoe UI","Noto Sans Thai",Tahoma,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;font-size:15px}
+  .app{display:flex;min-height:100vh}
+
+  /* Sidebar */
+  .sidebar{width:230px;background:var(--ink);color:#cbd5e1;flex-shrink:0;display:flex;flex-direction:column}
+  .brand{padding:18px 20px;border-bottom:1px solid #1e293b;display:flex;align-items:center;gap:9px}
+  .brand .baht{display:grid;place-items:center;width:34px;height:34px;border-radius:9px;background:var(--brand);color:#fff;font-size:19px;font-weight:700;flex-shrink:0}
+  .brand .t{font-weight:700;color:#fff;font-size:16px;line-height:1.2}
+  .brand .t small{display:block;font-weight:500;color:var(--brand);font-size:11.5px}
+  .nav{padding:10px 0;flex:1;overflow-y:auto}
+  .nav a{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#cbd5e1;text-decoration:none;cursor:pointer;font-size:14.5px;border-left:3px solid transparent}
+  .nav a:hover{background:#1e293b;color:#fff}
+  .nav a.active{background:#1e293b;color:#fff;border-left-color:var(--brand)}
+  .nav .ic{width:22px;text-align:center}
+  .side-foot{padding:14px 20px;border-top:1px solid #1e293b;font-size:12px;color:#64748b}
+  .side-foot a{color:#86efac;text-decoration:none}
+
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{background:var(--card);padding:14px 26px;box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .topbar h1{font-size:19px;font-weight:700;color:var(--ink)}
+  .content{padding:24px 26px;flex:1}
+
+  /* Stats */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+  .stat{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--border)}
+  .stat .label{color:var(--muted);font-size:13px}
+  .stat .value{font-size:24px;font-weight:700;margin-top:4px;color:var(--ink)}
+  .stat .value.green{color:var(--brand)} .stat .value.red{color:var(--red)} .stat .value.amber{color:var(--amber)} .stat .value.blue{color:var(--blue)}
+  .stat .sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+  .card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:20px;overflow:hidden}
+  .card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .card-head h2{font-size:16px;font-weight:700;color:var(--ink)}
+  .card-body{padding:18px}
+  .card-body.flush{padding:0}
+
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:top}
+  th{background:#f8fafc;color:var(--muted);font-weight:600;white-space:nowrap}
+  td.num,th.num{text-align:right;white-space:nowrap}
+  tr:hover td{background:#fafcff}
+  .table-wrap{overflow-x:auto}
+
+  .btn{border:none;cursor:pointer;font-family:inherit;background:var(--brand);color:#fff;font-weight:600;font-size:13.5px;padding:9px 16px;border-radius:9px;transition:background .15s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{background:var(--brand-dark)}
+  .btn.ghost{background:none;color:var(--text);border:1px solid var(--border)}
+  .btn.ghost:hover{border-color:var(--brand);color:var(--brand);background:none}
+  .btn.sm{font-size:12px;padding:5px 10px;border-radius:7px}
+  .btn.danger{background:none;color:var(--red);border:1px solid #fecaca}
+  .btn.danger:hover{background:#fef2f2}
+  .btn.blue{background:var(--blue)} .btn.blue:hover{background:#1d4ed8}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+
+  .badge{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;display:inline-block}
+  .badge.draft{background:#e2e8f0;color:#475569}
+  .badge.sent{background:#fef3c7;color:#b45309}
+  .badge.paid{background:var(--brand-light);color:var(--brand-dark)}
+  .badge.overdue{background:#fee2e2;color:#b91c1c}
+  .badge.info{background:#dbeafe;color:#1d4ed8}
+
+  .empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px}
+  .empty .em{font-size:36px;display:block;margin-bottom:8px}
+
+  /* Forms */
+  .frm{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+  .frm .full{grid-column:1/-1}
+  .f label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .f input,.f select,.f textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;background:#fff}
+  .f input:focus,.f select:focus,.f textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(22,163,74,.13)}
+  .f input[type=number]{text-align:right}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto}
+  .overlay.show{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:760px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal-head{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .modal-head h3{font-size:17px;color:var(--ink)}
+  .modal-head .x{background:none;border:none;font-size:22px;cursor:pointer;color:var(--muted);line-height:1}
+  .modal-body{padding:20px}
+  .modal-foot{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+
+  .items-tbl input{padding:7px 9px;font-size:13.5px}
+  .sumbox{margin-top:14px;margin-left:auto;max-width:330px;font-size:14px}
+  .sumbox .row{display:flex;justify-content:space-between;padding:5px 0}
+  .sumbox .row.total{border-top:2px solid var(--ink);font-weight:700;font-size:16px;color:var(--ink);margin-top:4px;padding-top:8px}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tab{background:var(--card);border:1px solid var(--border);border-radius:999px;padding:6px 15px;font-size:13px;cursor:pointer;color:var(--muted);font-weight:600}
+  .tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+  .notice{padding:11px 14px;border-radius:10px;font-size:13.5px;margin-bottom:16px}
+  .notice.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+  .notice.ok{background:var(--brand-light);border:1px solid #bbf7d0;color:var(--brand-dark)}
+  .notice.err{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
+
+  .deadline{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:9px}
+  .deadline .d-ic{font-size:20px}
+  .deadline .d-t{flex:1}
+  .deadline .d-t b{color:var(--ink)}
+  .deadline .d-days{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:#e2e8f0;color:#475569}
+  .deadline.soon .d-days{background:#fee2e2;color:#b91c1c}
+
+  .menu-btn{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px}
+  @media(max-width:840px){
+    .sidebar{position:fixed;z-index:90;height:100vh;left:-240px;transition:left .2s}
+    .sidebar.open{left:0}
+    .menu-btn{display:block}
+  }
+
+  /* Print */
+  .print-area{display:none}
+  @media print{
+    body *{visibility:hidden}
+    .print-area,.print-area *{visibility:visible}
+    .print-area{display:block;position:absolute;inset:0;background:#fff;padding:24px;font-size:13px}
+  }
+  .doc-print{max-width:800px;margin:0 auto;color:#111}
+  .doc-print .hd{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:14px}
+  .doc-print h2{font-size:22px}
+  .doc-print table{margin:10px 0}
+  .doc-print th,.doc-print td{border:1px solid #999;padding:6px 9px}
+  .doc-print .no-b td,.doc-print .no-b th{border:none}
+  .doc-print .sig{display:flex;justify-content:space-around;margin-top:48px;text-align:center}
+  .doc-print .sig div{width:200px;border-top:1px dotted #555;padding-top:6px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="baht">฿</span>
+      <span class="t">บัญชีโปร<small>BuncheePro</small></span>
+    </div>
+    <nav class="nav" id="nav">
+      <a data-v="dash"><span class="ic">📊</span> แดชบอร์ด</a>
+      <a data-v="docs"><span class="ic">🧾</span> เอกสารขาย / ใบกำกับภาษี</a>
+      <a data-v="expenses"><span class="ic">💸</span> ค่าใช้จ่าย + สแกนใบเสร็จ</a>
+      <a data-v="bank"><span class="ic">🏦</span> ธนาคาร / กระทบยอด</a>
+      <a data-v="tax"><span class="ic">🏛️</span> ภาษี (ภ.พ.30 / ภ.ง.ด.)</a>
+      <a data-v="payroll"><span class="ic">👥</span> เงินเดือน + ประกันสังคม</a>
+      <a data-v="reports"><span class="ic">📈</span> รายงานเรียลไทม์</a>
+      <a data-v="settings"><span class="ic">⚙️</span> ตั้งค่ากิจการ</a>
+    </nav>
+    <div class="side-foot">
+      💬 ปรึกษานักบัญชี:<br><a href="contact.html">คุยกับทีมงาน →</a>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="menu-btn" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <h1 id="pageTitle">แดชบอร์ด</h1>
+      </div>
+      <div id="topAction"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="print-area" id="printArea"></div>
+<input type="file" id="scanFile" accept="image/*" style="display:none">
+<input type="file" id="importFile" accept="application/json" style="display:none">
+<input type="file" id="bankFile" accept=".csv,text/csv,text/plain" style="display:none">
+
+<script>
+'use strict';
+/* =====================================================================
+   บัญชีโปร (BuncheePro) — ระบบบัญชีและภาษีอัตโนมัติสำหรับ SME ไทย
+   เก็บข้อมูลใน localStorage ของเบราว์เซอร์ (สำรอง/กู้คืนได้ที่หน้า ตั้งค่า)
+   ===================================================================== */
+
+const LS_KEY = 'bunchee_acc_v1';
+const CATS = ['ค่าสินค้า/วัตถุดิบ','ค่าเช่า','ค่าน้ำ-ไฟ-อินเทอร์เน็ต','ค่าเดินทาง/ขนส่ง','การตลาด/โฆษณา','ค่าบริการวิชาชีพ','อุปกรณ์สำนักงาน','เงินเดือน/ค่าจ้าง','อื่น ๆ'];
+const DOC_NAMES = { QT:'ใบเสนอราคา', INV:'ใบแจ้งหนี้', RC:'ใบกำกับภาษี / ใบเสร็จรับเงิน' };
+
+let DB = load();
+function load(){
+  try{ const d = JSON.parse(localStorage.getItem(LS_KEY)); if(d && d.docs) return d; }catch(e){}
+  return {
+    settings:{ company:'', taxId:'', address:'', phone:'', vatRegistered:true },
+    seq:{ QT:1, INV:1, RC:1 },
+    docs:[], expenses:[], bank:[], employees:[], payrolls:[]
+  };
+}
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(n){ return (Number(n)||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function today(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function thMonth(ym){ const [y,m]=ym.split('-'); const names=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.']; return names[+m-1]+' '+(+y+543); }
+function thDate(iso){ if(!iso) return '-'; try{ return new Date(iso+'T00:00:00').toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return iso; } }
+function monthOf(iso){ return (iso||'').slice(0,7); }
+function curMonth(){ return today().slice(0,7); }
+
+/* จำนวนเงินเป็นตัวอักษรไทย */
+function bahtText(num){
+  num = Math.round((Number(num)||0)*100)/100;
+  const t=['','หนึ่ง','สอง','สาม','สี่','ห้า','หก','เจ็ด','แปด','เก้า'], p=['','สิบ','ร้อย','พัน','หมื่น','แสน'];
+  function read(n){
+    let s=''; const d=String(n).split('').reverse();
+    for(let i=d.length-1;i>=0;i--){ const v=+d[i]; if(!v) continue;
+      if(i===0&&v===1&&d.length>1) s+='เอ็ด';
+      else if(i===1&&v===2) s+='ยี่สิบ';
+      else if(i===1&&v===1) s+='สิบ';
+      else s+=t[v]+p[i];
+    } return s;
+  }
+  let [i,f]=num.toFixed(2).split('.'); let out='';
+  i=+i; f=+f;
+  if(i===0) out='ศูนย์'; else{
+    if(i>=1000000){ out+=read(Math.floor(i/1000000))+'ล้าน'; i%=1000000; }
+    out+=read(i);
+  }
+  out+='บาท';
+  out += f? read(f)+'สตางค์' : 'ถ้วน';
+  return out;
+}
+
+/* ---------- doc calculations ---------- */
+function docTotals(doc){
+  const sub = (doc.items||[]).reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.price)||0), 0);
+  let base, vat, total;
+  if(doc.vatMode==='include'){ base = sub/1.07; vat = sub-base; total = sub; }
+  else if(doc.vatMode==='none'){ base = sub; vat = 0; total = sub; }
+  else { base = sub; vat = sub*0.07; total = sub+vat; }
+  const wht = base * (Number(doc.whtRate)||0)/100;
+  return { sub, base, vat, total, wht, net: total - wht };
+}
+function nextDocNo(type){
+  const beYear = new Date().getFullYear()+543;
+  return type+'-'+beYear+'-'+String(DB.seq[type]).padStart(4,'0');
+}
+
+/* ---------- payroll calculations ---------- */
+function ssoOf(salary){ return Math.min((Number(salary)||0)*0.05, 750); }
+function whtMonthly(salary){
+  salary = Number(salary)||0;
+  const annual = salary*12;
+  const expense = Math.min(annual*0.5, 100000);      // หักค่าใช้จ่าย 50% ไม่เกิน 100,000
+  const allowance = 60000;                            // ลดหย่อนส่วนตัว
+  const ssoYear = ssoOf(salary)*12;
+  let taxable = Math.max(0, annual - expense - allowance - ssoYear);
+  const brackets=[[150000,0],[300000,.05],[500000,.10],[750000,.15],[1000000,.20],[2000000,.25],[5000000,.30],[Infinity,.35]];
+  let tax=0, prev=0;
+  for(const [cap,rate] of brackets){
+    if(taxable>prev) tax += (Math.min(taxable,cap)-prev)*rate;
+    prev=cap; if(taxable<=cap) break;
+  }
+  return Math.round(tax/12*100)/100;
+}
+
+/* ---------- tax aggregation ---------- */
+function taxOfMonth(ym){
+  const sales = DB.docs.filter(d=> d.type==='RC' && monthOf(d.date)===ym);
+  const outputVat = sales.reduce((s,d)=> s+docTotals(d).vat, 0);
+  const salesBase = sales.reduce((s,d)=> s+docTotals(d).base, 0);
+  const exps = DB.expenses.filter(e=> monthOf(e.date)===ym);
+  const inputVat = exps.reduce((s,e)=> s+(Number(e.vat)||0), 0);
+  const buyBase = exps.reduce((s,e)=> s+(Number(e.amount)||0), 0);
+  const pnd3 = exps.filter(e=> (Number(e.whtAmount)||0)>0 && e.whtType!=='นิติบุคคล');
+  const pnd53 = exps.filter(e=> (Number(e.whtAmount)||0)>0 && e.whtType==='นิติบุคคล');
+  const payroll = DB.payrolls.find(p=> p.month===ym);
+  const pnd1 = payroll ? payroll.rows.reduce((s,r)=> s+(Number(r.wht)||0),0) : 0;
+  const ssoEmp = payroll ? payroll.rows.reduce((s,r)=> s+(Number(r.sso)||0),0) : 0;
+  return { salesBase, outputVat, buyBase, inputVat, vatDue: outputVat-inputVat,
+           pnd3, pnd3Sum: pnd3.reduce((s,e)=>s+Number(e.whtAmount),0),
+           pnd53, pnd53Sum: pnd53.reduce((s,e)=>s+Number(e.whtAmount),0),
+           pnd1, ssoEmp, ssoTotal: ssoEmp*2, payroll };
+}
+function deadlines(){
+  /* ยื่นของเดือนก่อนหน้า: ภ.ง.ด.1/3/53 ภายในวันที่ 7, ภ.พ.30 + ประกันสังคม ภายในวันที่ 15 */
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const pm = prev.getFullYear()+'-'+String(prev.getMonth()+1).padStart(2,'0');
+  const t = taxOfMonth(pm);
+  const mk = (day, name, amount, show) => {
+    const due = new Date(now.getFullYear(), now.getMonth(), day);
+    const days = Math.ceil((due - now)/86400000);
+    return { name, amount, due, days, show, month: pm };
+  };
+  return [
+    mk(7,'ภ.ง.ด.1 (เงินเดือน)', t.pnd1, t.pnd1>0 || (t.payroll&&t.payroll.rows.length>0)),
+    mk(7,'ภ.ง.ด.3 (บุคคลธรรมดา)', t.pnd3Sum, t.pnd3Sum>0),
+    mk(7,'ภ.ง.ด.53 (นิติบุคคล)', t.pnd53Sum, t.pnd53Sum>0),
+    mk(15,'ภ.พ.30 (VAT)', t.vatDue, DB.settings.vatRegistered),
+    mk(15,'ประกันสังคม (สปส.1-10)', t.ssoTotal, t.ssoTotal>0),
+  ].filter(d=>d.show && d.days>=-5);
+}
+
+/* =====================================================================
+   ROUTER
+   ===================================================================== */
+const VIEWS = {
+  dash:{ title:'แดชบอร์ด', render:vDash },
+  docs:{ title:'เอกสารขาย / ใบกำกับภาษี', render:vDocs },
+  expenses:{ title:'ค่าใช้จ่าย + สแกนใบเสร็จ AI', render:vExpenses },
+  bank:{ title:'ธนาคาร / กระทบยอดอัตโนมัติ', render:vBank },
+  tax:{ title:'ภาษี — ภ.พ.30 / ภ.ง.ด.1 / 3 / 53 / ประกันสังคม', render:vTax },
+  payroll:{ title:'เงินเดือนพนักงาน + ประกันสังคม', render:vPayroll },
+  reports:{ title:'รายงานเรียลไทม์', render:vReports },
+  settings:{ title:'ตั้งค่ากิจการ', render:vSettings },
+};
+let state = { docFilter:'all', taxMonth:curMonth(), payMonth:curMonth() };
+
+function go(v){ location.hash = v; }
+function render(){
+  const v = (location.hash||'#dash').slice(1).split('/')[0];
+  const view = VIEWS[v] || VIEWS.dash;
+  document.querySelectorAll('.nav a').forEach(a=> a.classList.toggle('active', a.dataset.v===v));
+  $('#pageTitle').textContent = view.title;
+  $('#sidebar').classList.remove('open');
+  view.render();
+}
+window.addEventListener('hashchange', render);
+document.querySelectorAll('.nav a').forEach(a=> a.onclick = ()=> go(a.dataset.v));
+
+/* ---------- modal ---------- */
+function openModal(html){ $('#modal').innerHTML = html; $('#overlay').classList.add('show'); }
+function closeModal(){ $('#overlay').classList.remove('show'); }
+$('#overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+/* =====================================================================
+   VIEW: แดชบอร์ด
+   ===================================================================== */
+function vDash(){
+  $('#topAction').innerHTML = '';
+  const ym = curMonth();
+  const t = taxOfMonth(ym);
+  const revenue = DB.docs.filter(d=> (d.type==='RC'||(d.type==='INV'&&d.status==='paid')) && monthOf(d.date)===ym)
+                         .reduce((s,d)=> s+docTotals(d).base, 0);
+  const expense = DB.expenses.filter(e=> monthOf(e.date)===ym).reduce((s,e)=> s+(Number(e.amount)||0), 0);
+  const unpaid = DB.docs.filter(d=> (d.type==='INV'||d.type==='RC') && d.status!=='paid');
+  const unpaidSum = unpaid.reduce((s,d)=> s+docTotals(d).net, 0);
+  const dls = deadlines();
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">รายได้เดือนนี้ (ก่อน VAT)</div><div class="value green">฿${fmt(revenue)}</div><div class="sub">${thMonth(ym)}</div></div>
+      <div class="stat"><div class="label">ค่าใช้จ่ายเดือนนี้</div><div class="value red">฿${fmt(expense)}</div><div class="sub">${DB.expenses.filter(e=>monthOf(e.date)===ym).length} รายการ</div></div>
+      <div class="stat"><div class="label">กำไรขั้นต้น</div><div class="value ${revenue-expense>=0?'blue':'red'}">฿${fmt(revenue-expense)}</div><div class="sub">รายได้ − ค่าใช้จ่าย</div></div>
+      <div class="stat"><div class="label">VAT ที่ต้องนำส่ง (เดือนนี้)</div><div class="value amber">฿${fmt(Math.max(0,t.vatDue))}</div><div class="sub">ขาย ${fmt(t.outputVat)} − ซื้อ ${fmt(t.inputVat)}</div></div>
+      <div class="stat"><div class="label">ลูกหนี้ค้างชำระ</div><div class="value ${unpaidSum>0?'red':'green'}">฿${fmt(unpaidSum)}</div><div class="sub">${unpaid.length} ใบแจ้งหนี้</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>⏰ กำหนดยื่นภาษีที่ใกล้ถึง (ของเดือน ${thMonth(dls.length?dls[0].month:ym)})</h2></div>
+      <div class="card-body">
+        ${dls.length ? dls.map(d=>`
+          <div class="deadline ${d.days<=7?'soon':''}">
+            <span class="d-ic">${d.days<0?'🔴':d.days<=7?'⚠️':'🗓️'}</span>
+            <span class="d-t"><b>${esc(d.name)}</b> — ยอด ฿${fmt(d.amount)}<br><small style="color:var(--muted)">ยื่นภายใน ${thDate(d.due.toISOString().slice(0,10))}</small></span>
+            <span class="d-days">${d.days<0? 'เลยกำหนด '+(-d.days)+' วัน' : d.days===0? 'วันนี้!' : 'อีก '+d.days+' วัน'}</span>
+          </div>`).join('')
+        : '<div class="empty"><span class="em">✅</span>ไม่มีกำหนดยื่นที่ใกล้ถึง หรือยังไม่มีข้อมูลของเดือนก่อน</div>'}
+        <div style="text-align:right;margin-top:6px"><button class="btn ghost sm" onclick="go('tax')">ดูรายละเอียดภาษี →</button></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>🚀 ทางลัด</h2></div>
+      <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" onclick="openDocForm('RC')">+ ออกใบกำกับภาษี</button>
+        <button class="btn" onclick="openDocForm('INV')">+ ออกใบแจ้งหนี้</button>
+        <button class="btn blue" onclick="startScan()">📷 สแกนใบเสร็จด้วย AI</button>
+        <button class="btn ghost" onclick="go('bank')">🏦 กระทบยอดธนาคาร</button>
+      </div>
+    </div>
+
+    ${!DB.settings.company ? '<div class="notice warn">⚙️ ยังไม่ได้ตั้งค่าข้อมูลกิจการ (ชื่อบริษัท / เลขผู้เสียภาษี) — จำเป็นสำหรับการออกใบกำกับภาษี <a href="#settings">ตั้งค่าเลย →</a></div>' : ''}
+  `;
+}
+
+/* =====================================================================
+   VIEW: เอกสารขาย
+   ===================================================================== */
+function vDocs(){
+  $('#topAction').innerHTML = `<div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn ghost" onclick="openDocForm('QT')">+ ใบเสนอราคา</button>
+    <button class="btn ghost" onclick="openDocForm('INV')">+ ใบแจ้งหนี้</button>
+    <button class="btn" onclick="openDocForm('RC')">+ ใบกำกับภาษี</button></div>`;
+  const f = state.docFilter;
+  const docs = DB.docs.filter(d=> f==='all' || d.type===f).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  $('#content').innerHTML = `
+    <div class="tabs" style="margin-bottom:16px">
+      ${[['all','ทั้งหมด'],['QT','ใบเสนอราคา'],['INV','ใบแจ้งหนี้'],['RC','ใบกำกับภาษี']].map(([k,l])=>
+        `<span class="tab ${f===k?'active':''}" onclick="state.docFilter='${k}';render()">${l}</span>`).join('')}
+    </div>
+    <div class="card"><div class="card-body flush"><div class="table-wrap">
+    <table><thead><tr><th>เลขที่</th><th>วันที่</th><th>ลูกค้า</th><th class="num">มูลค่า</th><th class="num">VAT</th><th class="num">สุทธิ</th><th>สถานะ</th><th></th></tr></thead>
+    <tbody>
+    ${docs.length? docs.map(d=>{ const t=docTotals(d); return `<tr>
+      <td><b>${esc(d.no)}</b><br><small style="color:var(--muted)">${DOC_NAMES[d.type]}</small></td>
+      <td>${thDate(d.date)}</td>
+      <td>${esc(d.customer.name||'-')}</td>
+      <td class="num">${fmt(t.base)}</td>
+      <td class="num">${fmt(t.vat)}</td>
+      <td class="num"><b>${fmt(t.net)}</b></td>
+      <td><span class="badge ${d.status}">${{draft:'ฉบับร่าง',sent:'ส่งแล้ว/รอชำระ',paid:'ชำระแล้ว'}[d.status]||d.status}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn sm ghost" onclick="printDoc('${d.id}')">🖨️ พิมพ์</button>
+        ${d.status==='draft'? `<button class="btn sm ghost" onclick="setDocStatus('${d.id}','sent')">ส่ง</button>`:''}
+        ${d.status!=='paid' && d.type!=='QT' ? `<button class="btn sm" onclick="setDocStatus('${d.id}','paid')">✓ รับชำระ</button>`:''}
+        ${d.type==='QT'? `<button class="btn sm blue" onclick="convertDoc('${d.id}','INV')">→ แจ้งหนี้</button>`:''}
+        ${d.type==='INV' && d.status==='paid' && !d.converted ? `<button class="btn sm blue" onclick="convertDoc('${d.id}','RC')">→ ใบกำกับ</button>`:''}
+        <button class="btn sm danger" onclick="delDoc('${d.id}')">ลบ</button>
+      </td></tr>`; }).join('')
+    : `<tr><td colspan="8"><div class="empty"><span class="em">🧾</span>ยังไม่มีเอกสาร — กดปุ่มด้านบนเพื่อออกเอกสารฉบับแรก (ใช้เวลา ~30 วินาที)</div></td></tr>`}
+    </tbody></table></div></div></div>`;
+}
+
+function openDocForm(type, prefill){
+  const p = prefill || {};
+  const items = p.items || [{desc:'',qty:1,price:''}];
+  openModal(`
+    <div class="modal-head"><h3>สร้าง${DOC_NAMES[type]} <span class="badge info">${nextDocNo(type)}</span></h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <div class="frm">
+        <div class="f"><label>วันที่</label><input type="date" id="d-date" value="${p.date||today()}"></div>
+        <div class="f"><label>ชื่อลูกค้า *</label><input id="d-cust" value="${esc(p.customer?p.customer.name:'')}" placeholder="บริษัท ตัวอย่าง จำกัด"></div>
+        <div class="f"><label>เลขผู้เสียภาษีลูกค้า</label><input id="d-ctax" value="${esc(p.customer?p.customer.taxId:'')}" placeholder="13 หลัก"></div>
+        <div class="f full"><label>ที่อยู่ลูกค้า</label><input id="d-caddr" value="${esc(p.customer?p.customer.address:'')}"></div>
+        <div class="f"><label>VAT</label><select id="d-vat">
+          <option value="exclude">+VAT 7% (ราคาไม่รวม VAT)</option>
+          <option value="include" ${p.vatMode==='include'?'selected':''}>ราคารวม VAT แล้ว</option>
+          <option value="none" ${p.vatMode==='none'?'selected':''}>ไม่มี VAT</option></select></div>
+        <div class="f"><label>ถูกหักภาษี ณ ที่จ่าย</label><select id="d-wht">
+          ${[0,1,2,3,5].map(r=>`<option value="${r}" ${p.whtRate==r?'selected':''}>${r? r+'%':'ไม่หัก'}</option>`).join('')}</select></div>
+      </div>
+      <h4 style="margin:16px 0 8px;color:var(--ink)">รายการสินค้า/บริการ</h4>
+      <div class="table-wrap"><table class="items-tbl" id="itemsTbl">
+        <thead><tr><th style="width:50%">รายการ</th><th class="num">จำนวน</th><th class="num">ราคา/หน่วย</th><th class="num">รวม</th><th></th></tr></thead>
+        <tbody>${items.map(it=>itemRow(it)).join('')}</tbody>
+      </table></div>
+      <button class="btn ghost sm" style="margin-top:8px" onclick="addItemRow()">+ เพิ่มรายการ</button>
+      <div class="sumbox" id="docSum"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn" onclick="saveDoc('${type}')">💾 บันทึกเอกสาร</button>
+    </div>`);
+  $('#itemsTbl').addEventListener('input', updateDocSum);
+  $('#d-vat').addEventListener('change', updateDocSum);
+  $('#d-wht').addEventListener('change', updateDocSum);
+  updateDocSum();
+}
+function itemRow(it){
+  it = it||{desc:'',qty:1,price:''};
+  return `<tr>
+    <td><input class="i-desc" value="${esc(it.desc)}" placeholder="เช่น ค่าบริการทำบัญชี"></td>
+    <td><input class="i-qty" type="number" value="${it.qty}" min="0" step="any" style="width:80px"></td>
+    <td><input class="i-price" type="number" value="${it.price}" min="0" step="any" style="width:120px" placeholder="0.00"></td>
+    <td class="num i-sum">0.00</td>
+    <td><button class="btn sm danger" onclick="this.closest('tr').remove();updateDocSum()">×</button></td></tr>`;
+}
+function addItemRow(){ $('#itemsTbl tbody').insertAdjacentHTML('beforeend', itemRow()); updateDocSum(); }
+function readDocForm(){
+  const items = [...document.querySelectorAll('#itemsTbl tbody tr')].map(tr=>({
+    desc: tr.querySelector('.i-desc').value.trim(),
+    qty: Number(tr.querySelector('.i-qty').value)||0,
+    price: Number(tr.querySelector('.i-price').value)||0,
+  })).filter(it=> it.desc || it.price);
+  return {
+    date: $('#d-date').value || today(),
+    customer:{ name:$('#d-cust').value.trim(), taxId:$('#d-ctax').value.trim(), address:$('#d-caddr').value.trim() },
+    vatMode: $('#d-vat').value, whtRate: Number($('#d-wht').value)||0, items
+  };
+}
+function updateDocSum(){
+  document.querySelectorAll('#itemsTbl tbody tr').forEach(tr=>{
+    const q=Number(tr.querySelector('.i-qty').value)||0, pr=Number(tr.querySelector('.i-price').value)||0;
+    tr.querySelector('.i-sum').textContent = fmt(q*pr);
+  });
+  const t = docTotals(readDocForm());
+  $('#docSum').innerHTML = `
+    <div class="row"><span>มูลค่าก่อน VAT</span><b>฿${fmt(t.base)}</b></div>
+    <div class="row"><span>VAT 7%</span><b>฿${fmt(t.vat)}</b></div>
+    ${t.wht? `<div class="row" style="color:var(--red)"><span>หัก ณ ที่จ่าย</span><b>−฿${fmt(t.wht)}</b></div>`:''}
+    <div class="row total"><span>ยอดรับชำระ</span><span>฿${fmt(t.net)}</span></div>`;
+}
+function saveDoc(type){
+  const d = readDocForm();
+  if(!d.customer.name){ alert('กรุณากรอกชื่อลูกค้า'); return; }
+  if(!d.items.length){ alert('กรุณาเพิ่มรายการอย่างน้อย 1 รายการ'); return; }
+  const doc = { id:uid(), type, no:nextDocNo(type), status:'draft', ...d };
+  DB.seq[type]++; DB.docs.push(doc); save(); closeModal(); render();
+}
+function setDocStatus(id, st){
+  const d = DB.docs.find(x=>x.id===id); if(!d) return;
+  d.status = st; if(st==='paid') d.paidDate = today();
+  save(); render();
+}
+function convertDoc(id, toType){
+  const d = DB.docs.find(x=>x.id===id); if(!d) return;
+  const nd = { id:uid(), type:toType, no:nextDocNo(toType), status: toType==='RC'&&d.status==='paid'?'paid':'draft',
+    date:today(), customer:{...d.customer}, items:d.items.map(i=>({...i})), vatMode:d.vatMode, whtRate:d.whtRate, refNo:d.no };
+  if(nd.status==='paid') nd.paidDate = today();
+  DB.seq[toType]++; d.converted = true; DB.docs.push(nd); save(); render();
+}
+function delDoc(id){ if(!confirm('ลบเอกสารนี้ถาวร?')) return; DB.docs = DB.docs.filter(d=>d.id!==id); save(); render(); }
+
+function printDoc(id){
+  const d = DB.docs.find(x=>x.id===id); if(!d) return;
+  const t = docTotals(d); const s = DB.settings;
+  $('#printArea').innerHTML = `<div class="doc-print">
+    <div class="hd">
+      <div><h2>${esc(s.company||'(ยังไม่ตั้งชื่อกิจการ)')}</h2>
+        <div>${esc(s.address||'')}</div>
+        <div>โทร ${esc(s.phone||'-')} · เลขผู้เสียภาษี ${esc(s.taxId||'-')}</div></div>
+      <div style="text-align:right"><h2>${DOC_NAMES[d.type]}</h2>
+        <div>เลขที่ <b>${esc(d.no)}</b></div><div>วันที่ ${thDate(d.date)}</div>
+        ${d.refNo? `<div>อ้างอิง ${esc(d.refNo)}</div>`:''}</div>
+    </div>
+    <table class="no-b"><tr>
+      <td style="width:60%"><b>ลูกค้า:</b> ${esc(d.customer.name)}<br>${esc(d.customer.address||'')}<br>เลขผู้เสียภาษี: ${esc(d.customer.taxId||'-')}</td>
+      <td><b>สถานะ:</b> ${{draft:'ฉบับร่าง',sent:'รอชำระ',paid:'ชำระแล้ว'}[d.status]||''}</td></tr></table>
+    <table><thead><tr><th>#</th><th>รายการ</th><th class="num">จำนวน</th><th class="num">ราคา/หน่วย</th><th class="num">จำนวนเงิน</th></tr></thead>
+    <tbody>${d.items.map((it,i)=>`<tr><td>${i+1}</td><td>${esc(it.desc)}</td><td class="num">${fmt(it.qty)}</td><td class="num">${fmt(it.price)}</td><td class="num">${fmt(it.qty*it.price)}</td></tr>`).join('')}</tbody>
+    <tfoot>
+      <tr><td colspan="4" class="num">มูลค่าก่อนภาษี</td><td class="num">${fmt(t.base)}</td></tr>
+      <tr><td colspan="4" class="num">ภาษีมูลค่าเพิ่ม 7%</td><td class="num">${fmt(t.vat)}</td></tr>
+      ${t.wht?`<tr><td colspan="4" class="num">หักภาษี ณ ที่จ่าย ${d.whtRate}%</td><td class="num">−${fmt(t.wht)}</td></tr>`:''}
+      <tr><td colspan="4" class="num"><b>ยอดรวมสุทธิ</b></td><td class="num"><b>${fmt(t.net)}</b></td></tr>
+    </tfoot></table>
+    <div>(${bahtText(t.net)})</div>
+    <div class="sig"><div>ผู้รับเงิน / ผู้ออกเอกสาร</div><div>ผู้รับสินค้า / ลูกค้า</div></div>
+  </div>`;
+  window.print();
+}
+
+/* =====================================================================
+   VIEW: ค่าใช้จ่าย + สแกนใบเสร็จ
+   ===================================================================== */
+function vExpenses(){
+  $('#topAction').innerHTML = `<div style="display:flex;gap:8px">
+    <button class="btn blue" onclick="startScan()">📷 สแกนใบเสร็จ AI</button>
+    <button class="btn" onclick="openExpenseForm()">+ บันทึกค่าใช้จ่าย</button></div>`;
+  const exps = [...DB.expenses].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  $('#content').innerHTML = `
+    <div id="scanStatus"></div>
+    <div class="card"><div class="card-body flush"><div class="table-wrap">
+    <table><thead><tr><th>วันที่</th><th>ผู้ขาย/ร้านค้า</th><th>หมวดหมู่</th><th class="num">มูลค่า</th><th class="num">VAT ซื้อ</th><th class="num">หัก ณ ที่จ่าย</th><th class="num">รวมจ่าย</th><th></th></tr></thead>
+    <tbody>${exps.length? exps.map(e=>`<tr>
+      <td>${thDate(e.date)}</td>
+      <td>${esc(e.vendor||'-')}${e.ai?' <span class="badge info">AI</span>':''}<br><small style="color:var(--muted)">${esc(e.note||'')}</small></td>
+      <td>${esc(e.category)}</td>
+      <td class="num">${fmt(e.amount)}</td>
+      <td class="num">${fmt(e.vat)}</td>
+      <td class="num">${e.whtAmount? fmt(e.whtAmount)+'<br><small>'+esc(e.whtType||'')+'</small>':'-'}</td>
+      <td class="num"><b>${fmt((Number(e.amount)||0)+(Number(e.vat)||0)-(Number(e.whtAmount)||0))}</b></td>
+      <td><button class="btn sm ghost" onclick="openExpenseForm('${e.id}')">แก้ไข</button> <button class="btn sm danger" onclick="delExpense('${e.id}')">ลบ</button></td>
+    </tr>`).join('') : `<tr><td colspan="8"><div class="empty"><span class="em">📷</span>ยังไม่มีค่าใช้จ่าย — ถ่ายรูปใบเสร็จแล้วให้ AI อ่านให้ หรือกรอกเองก็ได้</div></td></tr>`}
+    </tbody></table></div></div></div>`;
+}
+function openExpenseForm(id, prefill){
+  const e = id ? DB.expenses.find(x=>x.id===id) : (prefill||{});
+  openModal(`
+    <div class="modal-head"><h3>${id?'แก้ไข':'บันทึก'}ค่าใช้จ่าย ${e.ai?'<span class="badge info">อ่านโดย AI — กรุณาตรวจทาน</span>':''}</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div class="frm">
+      <div class="f"><label>วันที่ *</label><input type="date" id="e-date" value="${e.date||today()}"></div>
+      <div class="f"><label>ผู้ขาย/ร้านค้า *</label><input id="e-vendor" value="${esc(e.vendor||'')}"></div>
+      <div class="f"><label>เลขผู้เสียภาษีผู้ขาย</label><input id="e-taxid" value="${esc(e.taxId||'')}"></div>
+      <div class="f"><label>หมวดหมู่</label><select id="e-cat">${CATS.map(c=>`<option ${e.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="f"><label>มูลค่าก่อน VAT *</label><input type="number" id="e-amount" step="any" value="${e.amount!=null?e.amount:''}"></div>
+      <div class="f"><label>VAT ซื้อ (ถ้ามีใบกำกับ)</label><input type="number" id="e-vat" step="any" value="${e.vat!=null?e.vat:''}" placeholder="0.00"></div>
+      <div class="f"><label>หัก ณ ที่จ่าย (%)</label><select id="e-whtrate">${[0,1,2,3,5].map(r=>`<option value="${r}" ${e.whtRate==r?'selected':''}>${r?r+'%':'ไม่หัก'}</option>`).join('')}</select></div>
+      <div class="f"><label>ประเภทผู้รับเงิน (สำหรับ ภ.ง.ด.)</label><select id="e-whttype">
+        <option ${e.whtType!=='นิติบุคคล'?'selected':''}>บุคคลธรรมดา</option>
+        <option ${e.whtType==='นิติบุคคล'?'selected':''}>นิติบุคคล</option></select></div>
+      <div class="f full"><label>หมายเหตุ</label><input id="e-note" value="${esc(e.note||'')}"></div>
+    </div></div>
+    <div class="modal-foot">
+      <button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+      <button class="btn" onclick="saveExpense('${id||''}', ${e.ai?'true':'false'})">💾 บันทึก</button>
+    </div>`);
+}
+function saveExpense(id, ai){
+  const amount = Number($('#e-amount').value);
+  const vendor = $('#e-vendor').value.trim();
+  if(!vendor || !(amount>0)){ alert('กรุณากรอกผู้ขายและมูลค่าให้ถูกต้อง'); return; }
+  const whtRate = Number($('#e-whtrate').value)||0;
+  const rec = {
+    id: id||uid(), date: $('#e-date').value||today(), vendor, taxId: $('#e-taxid').value.trim(),
+    category: $('#e-cat').value, amount, vat: Number($('#e-vat').value)||0,
+    whtRate, whtAmount: Math.round(amount*whtRate)/100 * 1, whtType: $('#e-whttype').value,
+    note: $('#e-note').value.trim(), ai: !!ai
+  };
+  rec.whtAmount = Math.round(amount*whtRate/100*100)/100;
+  if(id){ const i = DB.expenses.findIndex(x=>x.id===id); DB.expenses[i]=rec; } else DB.expenses.push(rec);
+  save(); closeModal(); render();
+}
+function delExpense(id){ if(!confirm('ลบรายการนี้?')) return; DB.expenses = DB.expenses.filter(e=>e.id!==id); save(); render(); }
+
+/* ---------- AI receipt scan ---------- */
+function startScan(){ $('#scanFile').value=''; $('#scanFile').click(); }
+$('#scanFile').addEventListener('change', async e=>{
+  const file = e.target.files[0]; if(!file) return;
+  if(location.hash!=='#expenses') go('expenses');
+  setTimeout(()=> scanReceipt(file), 50);
+});
+function scanStatus(html){ const el=$('#scanStatus'); if(el) el.innerHTML = html; }
+async function scanReceipt(file){
+  scanStatus('<div class="notice ok">🤖 AI กำลังอ่านใบเสร็จ... (ประมาณ 5–15 วินาที)</div>');
+  try{
+    const dataUrl = await resizeImage(file, 1400);
+    const base64 = dataUrl.split(',')[1];
+    const res = await fetch('/api/scan-receipt', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ image_base64: base64, media_type:'image/jpeg' })
+    });
+    const j = await res.json();
+    if(!res.ok || !j.ok) throw new Error(j.error || 'สแกนไม่สำเร็จ');
+    scanStatus('<div class="notice ok">✅ AI อ่านใบเสร็จสำเร็จ — กรุณาตรวจทานก่อนบันทึก</div>');
+    const d = j.data||{};
+    openExpenseForm(null, {
+      ai:true, vendor:d.vendor||'', taxId:d.tax_id||'', date:d.date||today(),
+      amount:d.subtotal!=null?d.subtotal:(d.total!=null&&d.vat!=null? d.total-d.vat : d.total),
+      vat:d.vat||0, category: CATS.includes(d.category)? d.category : 'อื่น ๆ', note:'จากสแกนใบเสร็จ AI'
+    });
+  }catch(err){
+    scanStatus(`<div class="notice err">⚠️ ${esc(err.message)} — เปิดฟอร์มให้กรอกเองแทน</div>`);
+    openExpenseForm(null, { note:'' });
+  }
+}
+function resizeImage(file, maxSide){
+  return new Promise((resolve,reject)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, maxSide/Math.max(img.width,img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      resolve(c.toDataURL('image/jpeg', .85));
+    };
+    img.onerror = ()=> reject(new Error('อ่านไฟล์รูปไม่ได้'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/* =====================================================================
+   VIEW: ธนาคาร / กระทบยอด
+   ===================================================================== */
+function vBank(){
+  $('#topAction').innerHTML = `<div style="display:flex;gap:8px">
+    <button class="btn ghost" onclick="$('#bankFile').click()">📄 นำเข้าไฟล์ CSV</button>
+    <button class="btn" onclick="openBankPaste()">+ วางรายการเดินบัญชี</button></div>`;
+  const txs = [...DB.bank].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  const matched = txs.filter(t=>t.status==='matched').length;
+  $('#content').innerHTML = `
+    <div class="notice ok">💡 ดาวน์โหลดรายการเดินบัญชี (CSV) จากแอปธนาคารของคุณ แล้วนำเข้าที่นี่ — ระบบจะ<b>จับคู่กับใบแจ้งหนี้ค้างชำระให้อัตโนมัติ</b>เมื่อยอดเงินตรงกัน (รูปแบบ: วันที่, รายละเอียด, จำนวนเงิน)</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="label">รายการทั้งหมด</div><div class="value">${txs.length}</div></div>
+      <div class="stat"><div class="label">จับคู่แล้ว</div><div class="value green">${matched}</div></div>
+      <div class="stat"><div class="label">รอตรวจสอบ</div><div class="value amber">${txs.length-matched}</div></div>
+    </div>
+    <div class="card"><div class="card-body flush"><div class="table-wrap">
+    <table><thead><tr><th>วันที่</th><th>รายละเอียด</th><th class="num">จำนวนเงิน</th><th>สถานะ / คู่รายการ</th><th></th></tr></thead>
+    <tbody>${txs.length? txs.map(t=>{
+      const sug = t.status!=='matched' ? suggestMatch(t) : null;
+      const mdoc = t.matchedDocId ? DB.docs.find(d=>d.id===t.matchedDocId) : null;
+      return `<tr>
+      <td>${thDate(t.date)}</td><td>${esc(t.desc)}</td>
+      <td class="num" style="color:${t.amount>=0?'var(--brand)':'var(--red)'};font-weight:700">${t.amount>=0?'+':''}${fmt(t.amount)}</td>
+      <td>${ mdoc? `<span class="badge paid">จับคู่: ${esc(mdoc.no)}</span>`
+            : sug? `<span class="badge sent">พบใบแจ้งหนี้ยอดตรง: ${esc(sug.no)}</span>`
+            : t.status==='booked'? '<span class="badge info">บันทึกเป็นรายจ่ายแล้ว</span>'
+            : '<span class="badge draft">ยังไม่จับคู่</span>' }</td>
+      <td style="white-space:nowrap">
+        ${sug? `<button class="btn sm" onclick="matchTx('${t.id}','${sug.id}')">✓ จับคู่ + รับชำระ</button>`:''}
+        ${t.amount<0 && t.status!=='booked' && !mdoc ? `<button class="btn sm ghost" onclick="bookTxExpense('${t.id}')">บันทึกเป็นรายจ่าย</button>`:''}
+        <button class="btn sm danger" onclick="delTx('${t.id}')">ลบ</button></td>
+      </tr>`;}).join('')
+    : `<tr><td colspan="5"><div class="empty"><span class="em">🏦</span>ยังไม่มีรายการเดินบัญชี — นำเข้า CSV หรือวางข้อมูลจากธนาคาร</div></td></tr>`}
+    </tbody></table></div></div></div>`;
+}
+function suggestMatch(tx){
+  if(tx.amount<=0) return null;
+  return DB.docs.find(d=> (d.type==='INV'||d.type==='RC') && d.status!=='paid' && Math.abs(docTotals(d).net - tx.amount) < 0.01);
+}
+function matchTx(txId, docId){
+  const tx = DB.bank.find(t=>t.id===txId); const d = DB.docs.find(x=>x.id===docId);
+  if(!tx||!d) return;
+  tx.status='matched'; tx.matchedDocId=docId; d.status='paid'; d.paidDate=tx.date;
+  save(); render();
+}
+function bookTxExpense(txId){
+  const tx = DB.bank.find(t=>t.id===txId); if(!tx) return;
+  tx.status='booked';
+  DB.expenses.push({ id:uid(), date:tx.date, vendor:tx.desc.slice(0,60), taxId:'', category:'อื่น ๆ',
+    amount:Math.abs(tx.amount), vat:0, whtRate:0, whtAmount:0, whtType:'นิติบุคคล', note:'จากรายการธนาคาร' });
+  save(); render();
+}
+function delTx(id){ DB.bank = DB.bank.filter(t=>t.id!==id); save(); render(); }
+function openBankPaste(){
+  openModal(`
+    <div class="modal-head"><h3>วางรายการเดินบัญชี</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--muted);margin-bottom:10px">รูปแบบ: <code>วันที่, รายละเอียด, จำนวนเงิน</code> (บรรทัดละ 1 รายการ · เงินออกใส่ติดลบ · รองรับ ค.ศ./พ.ศ. และคั่นด้วย , หรือ Tab)</p>
+      <div class="f"><textarea id="bankText" rows="8" placeholder="2026-07-01, โอนจาก บจ.ลูกค้าดี, 10700.00&#10;2026-07-02, ค่าไฟฟ้า กฟน., -2340.50"></textarea></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+    <button class="btn" onclick="importBankText($('#bankText').value); closeModal();">นำเข้า</button></div>`);
+}
+$('#bankFile').addEventListener('change', e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=> importBankText(String(r.result));
+  r.readAsText(f); e.target.value='';
+});
+function importBankText(text){
+  let n=0;
+  (text||'').split(/\r?\n/).forEach(line=>{
+    line=line.trim(); if(!line) return;
+    const parts = line.split(/\t|,/).map(s=>s.trim()).filter(s=>s!=='');
+    if(parts.length<3) return;
+    const amount = Number(parts[parts.length-1].replace(/[",฿\s]/g,''));
+    if(isNaN(amount)) return;
+    const date = normDate(parts[0]);
+    const desc = parts.slice(1,-1).join(' ');
+    DB.bank.push({ id:uid(), date, desc, amount, status:'new' });
+    n++;
+  });
+  save(); go('bank'); render();
+  if(n===0) alert('ไม่พบรายการที่อ่านได้ กรุณาตรวจสอบรูปแบบข้อมูล');
+}
+function normDate(s){
+  s = s.trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m){ let y=+m[1]; if(y>2400) y-=543; return y+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0'); }
+  m = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/);
+  if(m){ let y=+m[3]; if(y<100) y+=2000; if(y>2400) y-=543; return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); }
+  return today();
+}
+
+/* =====================================================================
+   VIEW: ภาษี
+   ===================================================================== */
+function vTax(){
+  $('#topAction').innerHTML = `<input type="month" id="taxMonth" value="${state.taxMonth}" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit" onchange="state.taxMonth=this.value;render()">`;
+  const ym = state.taxMonth; const t = taxOfMonth(ym);
+  $('#content').innerHTML = `
+    <div class="notice ok">🏛️ ระบบคำนวณจากข้อมูลจริงของคุณแบบเรียลไทม์: ใบกำกับภาษีขาย → VAT ขาย · ค่าใช้จ่ายที่มี VAT → VAT ซื้อ · รายการหัก ณ ที่จ่าย → ภ.ง.ด.3/53 · เงินเดือน → ภ.ง.ด.1 + ประกันสังคม — กำหนดยื่น ภ.ง.ด. ภายในวันที่ 7 และ ภ.พ.30/สปส. ภายในวันที่ 15 ของเดือนถัดไป</div>
+
+    <div class="card"><div class="card-head"><h2>ภ.พ.30 — ภาษีมูลค่าเพิ่ม เดือน ${thMonth(ym)}</h2></div>
+    <div class="card-body"><div class="stat-grid" style="margin-bottom:0">
+      <div class="stat"><div class="label">ยอดขาย (ก่อน VAT)</div><div class="value">฿${fmt(t.salesBase)}</div><div class="sub">ภาษีขาย ฿${fmt(t.outputVat)}</div></div>
+      <div class="stat"><div class="label">ยอดซื้อ (ก่อน VAT)</div><div class="value">฿${fmt(t.buyBase)}</div><div class="sub">ภาษีซื้อ ฿${fmt(t.inputVat)}</div></div>
+      <div class="stat"><div class="label">${t.vatDue>=0?'VAT ต้องชำระ':'VAT ขอคืน/ยกไป'}</div><div class="value ${t.vatDue>=0?'amber':'green'}">฿${fmt(Math.abs(t.vatDue))}</div><div class="sub">ภาษีขาย − ภาษีซื้อ</div></div>
+    </div></div></div>
+
+    <div class="card"><div class="card-head"><h2>ภ.ง.ด.3 — หัก ณ ที่จ่าย บุคคลธรรมดา · ยอดนำส่ง ฿${fmt(t.pnd3Sum)}</h2></div>
+    <div class="card-body flush">${whtTable(t.pnd3)}</div></div>
+
+    <div class="card"><div class="card-head"><h2>ภ.ง.ด.53 — หัก ณ ที่จ่าย นิติบุคคล · ยอดนำส่ง ฿${fmt(t.pnd53Sum)}</h2></div>
+    <div class="card-body flush">${whtTable(t.pnd53)}</div></div>
+
+    <div class="card"><div class="card-head"><h2>ภ.ง.ด.1 + ประกันสังคม (จากเงินเดือน ${thMonth(ym)})</h2></div>
+    <div class="card-body">${ t.payroll ? `
+      <div class="stat-grid" style="margin-bottom:0">
+        <div class="stat"><div class="label">ภาษีหัก ณ ที่จ่ายเงินเดือน (ภ.ง.ด.1)</div><div class="value">฿${fmt(t.pnd1)}</div><div class="sub">พนักงาน ${t.payroll.rows.length} คน</div></div>
+        <div class="stat"><div class="label">ประกันสังคม ส่วนลูกจ้าง</div><div class="value">฿${fmt(t.ssoEmp)}</div></div>
+        <div class="stat"><div class="label">นำส่ง สปส. รวม (ลูกจ้าง+นายจ้าง)</div><div class="value amber">฿${fmt(t.ssoTotal)}</div></div>
+      </div>` : `<div class="empty">ยังไม่ได้ทำเงินเดือนของเดือนนี้ — <a href="#payroll">ไปที่หน้าเงินเดือน →</a></div>`}
+    </div></div>`;
+}
+function whtTable(list){
+  if(!list.length) return '<div class="empty" style="padding:22px">ไม่มีรายการในเดือนนี้</div>';
+  return `<div class="table-wrap"><table><thead><tr><th>วันที่</th><th>ผู้รับเงิน</th><th>เลขผู้เสียภาษี</th><th class="num">เงินได้</th><th class="num">อัตรา</th><th class="num">ภาษีที่หัก</th></tr></thead>
+  <tbody>${list.map(e=>`<tr><td>${thDate(e.date)}</td><td>${esc(e.vendor)}</td><td>${esc(e.taxId||'-')}</td>
+    <td class="num">${fmt(e.amount)}</td><td class="num">${e.whtRate}%</td><td class="num"><b>${fmt(e.whtAmount)}</b></td></tr>`).join('')}</tbody></table></div>`;
+}
+
+/* =====================================================================
+   VIEW: เงินเดือน
+   ===================================================================== */
+function vPayroll(){
+  $('#topAction').innerHTML = `<button class="btn" onclick="openEmpForm()">+ เพิ่มพนักงาน</button>`;
+  const ym = state.payMonth;
+  const pr = DB.payrolls.find(p=>p.month===ym);
+  $('#content').innerHTML = `
+    <div class="card"><div class="card-head"><h2>👥 พนักงาน (${DB.employees.length} คน)</h2></div>
+    <div class="card-body flush"><div class="table-wrap">
+      <table><thead><tr><th>ชื่อ</th><th>ตำแหน่ง</th><th class="num">เงินเดือน</th><th class="num">ปกส./เดือน</th><th class="num">ภาษี/เดือน (ประมาณ)</th><th></th></tr></thead>
+      <tbody>${DB.employees.length? DB.employees.map(e=>`<tr>
+        <td><b>${esc(e.name)}</b></td><td>${esc(e.position||'-')}</td>
+        <td class="num">${fmt(e.salary)}</td><td class="num">${fmt(ssoOf(e.salary))}</td><td class="num">${fmt(whtMonthly(e.salary))}</td>
+        <td><button class="btn sm ghost" onclick="openEmpForm('${e.id}')">แก้ไข</button> <button class="btn sm danger" onclick="delEmp('${e.id}')">ลบ</button></td>
+      </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><span class="em">👥</span>ยังไม่มีพนักงาน</div></td></tr>`}</tbody></table>
+    </div></div></div>
+
+    <div class="card"><div class="card-head">
+      <h2>💰 ทำเงินเดือนประจำเดือน</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="month" value="${ym}" style="padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit" onchange="state.payMonth=this.value;render()">
+        ${!pr && DB.employees.length? `<button class="btn" onclick="runPayroll('${ym}')">▶ คำนวณเงินเดือน ${thMonth(ym)}</button>`:''}
+      </div></div>
+    <div class="card-body flush">
+      ${pr? `<div class="table-wrap"><table>
+        <thead><tr><th>พนักงาน</th><th class="num">เงินเดือน</th><th class="num">ประกันสังคม</th><th class="num">ภาษี (ภ.ง.ด.1)</th><th class="num">รับสุทธิ</th><th></th></tr></thead>
+        <tbody>${pr.rows.map(r=>{ const emp = DB.employees.find(e=>e.id===r.empId)||{name:r.name||'-'}; return `<tr>
+          <td>${esc(emp.name)}</td><td class="num">${fmt(r.salary)}</td><td class="num">−${fmt(r.sso)}</td><td class="num">−${fmt(r.wht)}</td>
+          <td class="num"><b>${fmt(r.net)}</b></td>
+          <td><button class="btn sm ghost" onclick="printPayslip('${pr.month}','${r.empId}')">🖨️ สลิป</button></td></tr>`;}).join('')}
+        <tr style="background:#f8fafc;font-weight:700"><td>รวม</td>
+          <td class="num">${fmt(pr.rows.reduce((s,r)=>s+r.salary,0))}</td>
+          <td class="num">−${fmt(pr.rows.reduce((s,r)=>s+r.sso,0))}</td>
+          <td class="num">−${fmt(pr.rows.reduce((s,r)=>s+r.wht,0))}</td>
+          <td class="num">${fmt(pr.rows.reduce((s,r)=>s+r.net,0))}</td>
+          <td><button class="btn sm danger" onclick="delPayroll('${pr.month}')">ยกเลิกงวดนี้</button></td></tr>
+        </tbody></table></div>`
+      : `<div class="empty"><span class="em">💰</span>ยังไม่ได้ทำเงินเดือนของ ${thMonth(ym)}${DB.employees.length?'':' — เพิ่มพนักงานก่อน'}</div>`}
+    </div></div>
+    <div class="notice warn">ℹ️ ภาษีคำนวณแบบประมาณการ (หักค่าใช้จ่าย 50% ไม่เกิน 100,000 + ลดหย่อนส่วนตัว 60,000 + ปกส.) — พนักงานที่มีลดหย่อนเพิ่มเติมอาจต่างจากนี้ ประกันสังคม 5% เพดาน 750 บาท/เดือน</div>`;
+}
+function openEmpForm(id){
+  const e = id? DB.employees.find(x=>x.id===id) : {};
+  openModal(`
+    <div class="modal-head"><h3>${id?'แก้ไข':'เพิ่ม'}พนักงาน</h3><button class="x" onclick="closeModal()">×</button></div>
+    <div class="modal-body"><div class="frm">
+      <div class="f"><label>ชื่อ-นามสกุล *</label><input id="emp-name" value="${esc(e.name||'')}"></div>
+      <div class="f"><label>ตำแหน่ง</label><input id="emp-pos" value="${esc(e.position||'')}"></div>
+      <div class="f"><label>เงินเดือน (บาท) *</label><input id="emp-sal" type="number" step="any" value="${e.salary!=null?e.salary:''}"></div>
+    </div></div>
+    <div class="modal-foot"><button class="btn ghost" onclick="closeModal()">ยกเลิก</button>
+    <button class="btn" onclick="saveEmp('${id||''}')">💾 บันทึก</button></div>`);
+}
+function saveEmp(id){
+  const name = $('#emp-name').value.trim(); const salary = Number($('#emp-sal').value);
+  if(!name || !(salary>0)){ alert('กรุณากรอกชื่อและเงินเดือน'); return; }
+  const rec = { id:id||uid(), name, position:$('#emp-pos').value.trim(), salary };
+  if(id){ const i=DB.employees.findIndex(x=>x.id===id); DB.employees[i]=rec; } else DB.employees.push(rec);
+  save(); closeModal(); render();
+}
+function delEmp(id){ if(!confirm('ลบพนักงานคนนี้?')) return; DB.employees = DB.employees.filter(e=>e.id!==id); save(); render(); }
+function runPayroll(ym){
+  if(DB.payrolls.find(p=>p.month===ym)) return;
+  const rows = DB.employees.map(e=>{
+    const sso = ssoOf(e.salary), wht = whtMonthly(e.salary);
+    return { empId:e.id, name:e.name, salary:Number(e.salary), sso, wht, net: Number(e.salary)-sso-wht };
+  });
+  DB.payrolls.push({ id:uid(), month:ym, rows, createdAt:today() });
+  save(); render();
+}
+function delPayroll(ym){ if(!confirm('ยกเลิกเงินเดือนงวดนี้?')) return; DB.payrolls = DB.payrolls.filter(p=>p.month!==ym); save(); render(); }
+function printPayslip(ym, empId){
+  const pr = DB.payrolls.find(p=>p.month===ym); if(!pr) return;
+  const r = pr.rows.find(x=>x.empId===empId); if(!r) return;
+  const emp = DB.employees.find(e=>e.id===empId)||{name:r.name,position:''};
+  const s = DB.settings;
+  $('#printArea').innerHTML = `<div class="doc-print">
+    <div class="hd"><div><h2>${esc(s.company||'')}</h2><div>${esc(s.address||'')}</div></div>
+    <div style="text-align:right"><h2>สลิปเงินเดือน</h2><div>งวด ${thMonth(ym)}</div></div></div>
+    <table class="no-b"><tr><td><b>พนักงาน:</b> ${esc(emp.name)}</td><td><b>ตำแหน่ง:</b> ${esc(emp.position||'-')}</td></tr></table>
+    <table><thead><tr><th>รายการ</th><th class="num">รายรับ</th><th class="num">รายการหัก</th></tr></thead>
+    <tbody>
+      <tr><td>เงินเดือน</td><td class="num">${fmt(r.salary)}</td><td class="num"></td></tr>
+      <tr><td>ประกันสังคม (5%)</td><td class="num"></td><td class="num">${fmt(r.sso)}</td></tr>
+      <tr><td>ภาษีหัก ณ ที่จ่าย</td><td class="num"></td><td class="num">${fmt(r.wht)}</td></tr>
+      <tr><td><b>เงินได้สุทธิ</b></td><td class="num" colspan="2"><b>฿${fmt(r.net)}</b> (${bahtText(r.net)})</td></tr>
+    </tbody></table>
+    <div class="sig"><div>ฝ่ายบุคคล/ผู้จ่าย</div><div>ผู้รับเงิน</div></div></div>`;
+  window.print();
+}
+
+/* =====================================================================
+   VIEW: รายงาน
+   ===================================================================== */
+function vReports(){
+  $('#topAction').innerHTML='';
+  const months = [];
+  const now = new Date();
+  for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+  const rows = months.map(ym=>{
+    const rev = DB.docs.filter(d=> (d.type==='RC'||(d.type==='INV'&&d.status==='paid')) && monthOf(d.date)===ym).reduce((s,d)=>s+docTotals(d).base,0);
+    const exp = DB.expenses.filter(e=> monthOf(e.date)===ym).reduce((s,e)=>s+(Number(e.amount)||0),0);
+    const sal = (DB.payrolls.find(p=>p.month===ym)||{rows:[]}).rows.reduce((s,r)=>s+r.salary+ssoOf(r.salary),0);
+    return { ym, rev, exp: exp+sal, profit: rev-exp-sal };
+  });
+  const maxV = Math.max(1,...rows.map(r=>Math.max(r.rev,r.exp)));
+  /* top items */
+  const itemMap = {};
+  DB.docs.filter(d=> d.type==='RC'||(d.type==='INV'&&d.status==='paid')).forEach(d=> d.items.forEach(it=>{
+    itemMap[it.desc] = (itemMap[it.desc]||0) + it.qty*it.price;
+  }));
+  const top = Object.entries(itemMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  /* cash */
+  const cashIn = DB.docs.filter(d=>d.status==='paid').reduce((s,d)=>s+docTotals(d).net,0);
+  const cashOut = DB.expenses.reduce((s,e)=>s+(Number(e.amount)||0)+(Number(e.vat)||0)-(Number(e.whtAmount)||0),0)
+                + DB.payrolls.reduce((s,p)=>s+p.rows.reduce((x,r)=>x+r.net,0),0);
+
+  $('#content').innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="label">เงินสดรับ (สะสม)</div><div class="value green">฿${fmt(cashIn)}</div><div class="sub">จากเอกสารที่รับชำระแล้ว</div></div>
+      <div class="stat"><div class="label">เงินสดจ่าย (สะสม)</div><div class="value red">฿${fmt(cashOut)}</div><div class="sub">ค่าใช้จ่าย + เงินเดือนสุทธิ</div></div>
+      <div class="stat"><div class="label">กระแสเงินสดสุทธิ</div><div class="value ${cashIn-cashOut>=0?'blue':'red'}">฿${fmt(cashIn-cashOut)}</div></div>
+    </div>
+
+    <div class="card"><div class="card-head"><h2>📈 งบกำไรขาดทุน 6 เดือนล่าสุด (เรียลไทม์)</h2></div>
+    <div class="card-body"><div class="table-wrap"><table>
+      <thead><tr><th>เดือน</th><th class="num">รายได้</th><th class="num">ค่าใช้จ่าย (รวมเงินเดือน)</th><th class="num">กำไร/ขาดทุน</th><th style="width:34%">เทียบ</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr>
+        <td>${thMonth(r.ym)}</td><td class="num" style="color:var(--brand)">${fmt(r.rev)}</td>
+        <td class="num" style="color:var(--red)">${fmt(r.exp)}</td>
+        <td class="num" style="font-weight:700;color:${r.profit>=0?'var(--blue)':'var(--red)'}">${fmt(r.profit)}</td>
+        <td><div style="display:flex;flex-direction:column;gap:3px">
+          <div style="height:8px;border-radius:4px;background:var(--brand);width:${Math.round(r.rev/maxV*100)}%"></div>
+          <div style="height:8px;border-radius:4px;background:#fca5a5;width:${Math.round(r.exp/maxV*100)}%"></div>
+        </div></td></tr>`).join('')}</tbody></table></div></div></div>
+
+    <div class="card"><div class="card-head"><h2>🏆 สินค้า/บริการขายดี</h2></div>
+    <div class="card-body flush">${ top.length? `<div class="table-wrap"><table>
+      <thead><tr><th>อันดับ</th><th>รายการ</th><th class="num">ยอดขายสะสม</th></tr></thead>
+      <tbody>${top.map(([n,v],i)=>`<tr><td>${i+1}</td><td>${esc(n)}</td><td class="num"><b>${fmt(v)}</b></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty" style="padding:24px">ยังไม่มีข้อมูลการขาย</div>' }</div></div>`;
+}
+
+/* =====================================================================
+   VIEW: ตั้งค่า
+   ===================================================================== */
+function vSettings(){
+  $('#topAction').innerHTML='';
+  const s = DB.settings;
+  $('#content').innerHTML = `
+    <div class="card"><div class="card-head"><h2>🏢 ข้อมูลกิจการ (ใช้บนหัวเอกสาร/ใบกำกับภาษี)</h2></div>
+    <div class="card-body"><div class="frm">
+      <div class="f"><label>ชื่อกิจการ/บริษัท</label><input id="s-company" value="${esc(s.company)}"></div>
+      <div class="f"><label>เลขประจำตัวผู้เสียภาษี (13 หลัก)</label><input id="s-taxid" value="${esc(s.taxId)}"></div>
+      <div class="f"><label>โทรศัพท์</label><input id="s-phone" value="${esc(s.phone)}"></div>
+      <div class="f full"><label>ที่อยู่</label><input id="s-address" value="${esc(s.address)}"></div>
+      <div class="f"><label>จดทะเบียน VAT?</label><select id="s-vatreg">
+        <option value="1" ${s.vatRegistered?'selected':''}>จด VAT (ต้องยื่น ภ.พ.30)</option>
+        <option value="0" ${!s.vatRegistered?'selected':''}>ยังไม่จด VAT</option></select></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" onclick="saveSettings()">💾 บันทึกการตั้งค่า</button> <span id="sMsg" style="color:var(--brand);font-size:13px"></span></div>
+    </div></div>
+
+    <div class="card"><div class="card-head"><h2>💾 สำรอง / กู้คืนข้อมูล</h2></div>
+    <div class="card-body">
+      <p style="font-size:13.5px;color:var(--muted);margin-bottom:12px">ข้อมูลทั้งหมดเก็บในเบราว์เซอร์เครื่องนี้ — ควรส่งออกไฟล์สำรองเก็บไว้เป็นประจำ</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn ghost" onclick="exportData()">⬇️ ส่งออกข้อมูล (JSON)</button>
+        <button class="btn ghost" onclick="$('#importFile').click()">⬆️ นำเข้าข้อมูลสำรอง</button>
+        <button class="btn danger" onclick="wipeData()">🗑️ ล้างข้อมูลทั้งหมด</button>
+      </div>
+    </div></div>
+
+    <div class="card"><div class="card-head"><h2>🤖 การสแกนใบเสร็จด้วย AI</h2></div>
+    <div class="card-body" style="font-size:13.5px;color:var(--muted)">
+      ฟีเจอร์สแกนใบเสร็จเรียก API ที่ <code>/api/scan-receipt</code> (ทำงานเมื่อ deploy บน Vercel และตั้งค่า <code>ANTHROPIC_API_KEY</code> แล้ว — ดูวิธีใน SETUP.md)<br>
+      หากยังไม่ตั้งค่า ระบบจะเปิดฟอร์มให้กรอกเองแทนโดยอัตโนมัติ
+    </div></div>`;
+}
+function saveSettings(){
+  DB.settings = { company:$('#s-company').value.trim(), taxId:$('#s-taxid').value.trim(),
+    phone:$('#s-phone').value.trim(), address:$('#s-address').value.trim(),
+    vatRegistered: $('#s-vatreg').value==='1' };
+  save(); $('#sMsg').textContent='บันทึกแล้ว ✓'; setTimeout(()=>{ const m=$('#sMsg'); if(m) m.textContent=''; },2000);
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'buncheepro-backup-'+today()+'.json';
+  a.click();
+}
+$('#importFile').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const d=JSON.parse(String(r.result));
+    if(!d.docs || !d.settings) throw new Error('ไฟล์ไม่ถูกต้อง');
+    DB=d; save(); render(); alert('นำเข้าข้อมูลสำเร็จ ✓');
+  }catch(err){ alert('นำเข้าไม่สำเร็จ: '+err.message); } };
+  r.readAsText(f); e.target.value='';
+});
+function wipeData(){
+  if(!confirm('ลบข้อมูลทั้งหมดถาวร? (ควรส่งออกสำรองก่อน)')) return;
+  if(!confirm('ยืนยันอีกครั้ง — ลบทั้งหมดจริง ๆ?')) return;
+  localStorage.removeItem(LS_KEY); DB=load(); save(); render();
+}
+
+/* expose for inline handlers */
+Object.assign(window,{ go,state,openDocForm,addItemRow,updateDocSum,saveDoc,setDocStatus,convertDoc,delDoc,printDoc,
+  openExpenseForm,saveExpense,delExpense,startScan,openBankPaste,importBankText,matchTx,bookTxExpense,delTx,
+  openEmpForm,saveEmp,delEmp,runPayroll,delPayroll,printPayslip,saveSettings,exportData,wipeData,closeModal,$ });
+
+render();
+</script>
+</body>
+</html>
